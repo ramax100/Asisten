@@ -47,6 +47,7 @@ const BotSchema = new Schema<IBot>(
     forceJoinEnabled: { type: Boolean, default: true },
     forceJoinMessage: { type: String, default: '' },
     successMessage: { type: String, default: '' },
+    enabledFeatures: [{ type: String }],
   },
   { timestamps: true }
 )

@@ -8,7 +8,7 @@ function isAuthenticated(request: NextRequest): boolean {
   return request.cookies.get('auth-token')?.value === 'admin-authenticated'
 }
 
-// PATCH - Toggle feature or update message
+// PATCH - Toggle feature, enable feature, or update message
 export async function PATCH(
   request: NextRequest,
   { params }: { params: { botId: string } }
@@ -18,7 +18,7 @@ export async function PATCH(
   }
 
   try {
-    const { feature, enabled, message } = await request.json()
+    const { feature, enabled, message, featureId } = await request.json()
 
     await connectDB()
     const bot = await Bot.findOne({ botId: params.botId })
@@ -27,7 +27,12 @@ export async function PATCH(
       return NextResponse.json({ error: 'Bot tidak ditemukan' }, { status: 404 })
     }
 
-    if (feature === 'force_join') {
+    if (feature === 'enable_feature') {
+      // Add feature to enabledFeatures list
+      if (!bot.enabledFeatures.includes(featureId)) {
+        bot.enabledFeatures.push(featureId)
+      }
+    } else if (feature === 'force_join') {
       bot.forceJoinEnabled = enabled
     } else if (feature === 'force_join_message') {
       bot.forceJoinMessage = message || ''
@@ -62,8 +67,11 @@ export async function DELETE(
       return NextResponse.json({ error: 'Bot tidak ditemukan' }, { status: 404 })
     }
 
+    // Remove from enabledFeatures
+    bot.enabledFeatures = bot.enabledFeatures.filter((f: string) => f !== feature)
+
+    // Clear feature data
     if (feature === 'webhook') {
-      // Delete webhook from Telegram
       if (bot.webhookUrl) {
         await fetch(`https://api.telegram.org/bot${bot.token}/deleteWebhook`)
       }

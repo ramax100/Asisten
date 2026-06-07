@@ -38,6 +38,7 @@ export async function GET(
       forceJoinEnabled: bot.forceJoinEnabled,
       forceJoinMessage: bot.forceJoinMessage,
       successMessage: bot.successMessage,
+      enabledFeatures: bot.enabledFeatures || [],
     }
 
     return NextResponse.json({ bot: botData })
