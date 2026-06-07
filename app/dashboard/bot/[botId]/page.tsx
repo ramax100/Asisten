@@ -429,14 +429,12 @@ export default function BotSettingsPage() {
         )}
 
         {/* ===== ADD FEATURE BUTTON ===== */}
-        {availableFeatures.length > 0 && (
-          <button
-            onClick={() => setShowAddFeature(true)}
-            className="w-full py-3 border-2 border-dashed border-slate-300 hover:border-indigo-400 rounded-xl text-sm text-slate-500 hover:text-indigo-600 transition-all hover:bg-indigo-50/30"
-          >
-            + Tambah Fitur
-          </button>
-        )}
+        <button
+          onClick={() => setShowAddFeature(true)}
+          className="w-full py-3 border-2 border-dashed border-slate-300 hover:border-indigo-400 rounded-xl text-sm text-slate-500 hover:text-indigo-600 transition-all hover:bg-indigo-50/30"
+        >
+          + Tambah Fitur
+        </button>
 
         {/* ===== ADD FEATURE POPUP ===== */}
         {showAddFeature && (
@@ -447,22 +445,33 @@ export default function BotSettingsPage() {
                 <p className="text-xs text-slate-500 mt-0.5">Pilih fitur yang ingin ditambahkan</p>
               </div>
               <div className="p-2">
-                {availableFeatures.map((feature) => (
-                  <button
-                    key={feature.id}
-                    onClick={() => handleAddFeature(feature.id)}
-                    className="w-full text-left px-4 py-3 rounded-xl hover:bg-indigo-50 transition-colors flex items-center gap-3"
-                  >
-                    <span className="text-xl">{feature.icon}</span>
-                    <div>
-                      <p className="text-sm text-slate-700 font-medium">{feature.name}</p>
-                      <p className="text-[10px] text-slate-400">{feature.desc}</p>
-                    </div>
-                  </button>
-                ))}
+                {ALL_FEATURES.map((feature) => {
+                  const isAdded = enabledFeatures.includes(feature.id)
+                  return (
+                    <button
+                      key={feature.id}
+                      onClick={() => !isAdded && handleAddFeature(feature.id)}
+                      disabled={isAdded}
+                      className={`w-full text-left px-4 py-3 rounded-xl transition-colors flex items-center gap-3 ${
+                        isAdded
+                          ? 'bg-emerald-50/50 cursor-default'
+                          : 'hover:bg-indigo-50 cursor-pointer'
+                      }`}
+                    >
+                      <span className="text-xl">{feature.icon}</span>
+                      <div className="flex-1">
+                        <p className={`text-sm font-medium ${isAdded ? 'text-slate-400' : 'text-slate-700'}`}>{feature.name}</p>
+                        <p className="text-[10px] text-slate-400">{feature.desc}</p>
+                      </div>
+                      {isAdded && (
+                        <span className="text-emerald-500 text-sm">✅</span>
+                      )}
+                    </button>
+                  )
+                })}
               </div>
               <div className="px-5 py-3 border-t border-slate-100">
-                <button onClick={() => setShowAddFeature(false)} className="w-full py-2 text-xs text-slate-500 hover:text-slate-700 transition-colors">Batal</button>
+                <button onClick={() => setShowAddFeature(false)} className="w-full py-2 text-xs text-slate-500 hover:text-slate-700 transition-colors">Tutup</button>
               </div>
             </div>
           </div>
