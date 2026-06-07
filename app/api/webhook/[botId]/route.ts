@@ -274,11 +274,11 @@ async function handleMessage(message: any, bot: any) {
   }
 
   const features = bot.enabledFeatures || []
-  // Force enable all protection features if they have config
-  const hasAntiSpam = features.includes('anti_spam') || bot.antiSpamLimit
-  const hasAntiForward = features.includes('anti_forward') || bot.antiForwardWarningLimit
-  const hasBannedWords = features.includes('banned_words') || (bot.bannedWords && bot.bannedWords.length > 0)
-  const hasForceJoin = features.includes('force_join') || (bot.channels && bot.channels.length > 0)
+  // Always enable features - bypass enabledFeatures check completely
+  const hasAntiSpam = true
+  const hasAntiForward = true
+  const hasBannedWords = bot.bannedWords && bot.bannedWords.length > 0
+  const hasForceJoin = bot.channels && bot.channels.length > 0
   const userName = user.first_name || 'User'
   const userMention = `<a href="tg://user?id=${user.id}">${userName}</a>`
 
@@ -378,20 +378,24 @@ async function handleMessage(message: any, bot: any) {
     const limit = bot.antiSpamLimit || 5
 
     try {
-      // Atomic increment + get
-      const counter = await Counter.findOneAndUpdate(
-        { key },
-        { $inc: { count: 1 }, $setOnInsert: { firstMsg: now } },
-        { upsert: true, new: true }
-      )
+      // Get current counter
+      let counter = await Counter.findOne({ key })
+      
+      if (!counter) {
+        // First message from this user
+        counter = await Counter.create({ key, count: 1, firstMsg: now })
+      } else if ((now - counter.firstMsg) > intervalMs) {
+        // Interval expired - reset
+        counter.count = 1
+        counter.firstMsg = now
+        await counter.save()
+      } else {
+        // Within interval - increment
+        counter.count += 1
+        await counter.save()
+      }
 
-      // If interval expired, reset counter
-      if (counter.firstMsg && (now - counter.firstMsg) > intervalMs) {
-        await Counter.findOneAndUpdate(
-          { key },
-          { count: 1, firstMsg: now }
-        )
-      } else if (counter.count > limit) {
+      if (counter.count > limit) {
         // SPAM DETECTED - mute user
         const muteDuration = bot.antiSpamMuteDuration || '5m'
         const seconds = parseDurationSimple(muteDuration)
@@ -411,7 +415,8 @@ async function handleMessage(message: any, bot: any) {
         })
 
         // Reset counter after mute
-        await Counter.findOneAndUpdate({ key }, { count: 0, firstMsg: now })
+        counter.count = 0
+        await counter.save()
 
         const customMsg = bot.antiSpamMessage || `🚫 ${userMention} di-mute ${muteDuration} karena spam (>${limit} pesan dalam ${bot.antiSpamInterval || 10} detik).`
         const finalMsg = customMsg.replace(/{mention}/g, userMention).replace(/{name}/g, userName).replace(/{duration}/g, muteDuration).replace(/{limit}/g, String(limit))
