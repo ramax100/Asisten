@@ -7,7 +7,7 @@ import Bot from '@/lib/models/Bot'
 
 export const dynamic = 'force-dynamic'
 
-// GET - List all bots for current session owner
+// GET - List all bots
 export async function GET() {
   const session = await getIronSession<SessionData>(await cookies(), sessionOptions)
 
@@ -16,7 +16,7 @@ export async function GET() {
   }
 
   await connectDB()
-  const bots = await Bot.find({ ownerId: session.botId }).select('-token')
+  const bots = await Bot.find({}).select('-token')
 
   return NextResponse.json({ bots })
 }
@@ -60,7 +60,6 @@ export async function POST(request: NextRequest) {
       botId: String(botInfo.id),
       botUsername: botInfo.username,
       botName: botInfo.first_name,
-      ownerId: session.botId,
       channels: [],
       groups: [],
     })

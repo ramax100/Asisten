@@ -14,7 +14,6 @@ export async function GET() {
 
   return NextResponse.json({
     isLoggedIn: true,
-    botId: session.botId,
-    botUsername: session.botUsername,
+    username: session.username,
   })
 }

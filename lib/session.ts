@@ -1,10 +1,8 @@
 import { SessionOptions } from 'iron-session'
 
 export interface SessionData {
-  botId?: string
-  botToken?: string
-  botUsername?: string
   isLoggedIn: boolean
+  username?: string
 }
 
 export const sessionOptions: SessionOptions = {

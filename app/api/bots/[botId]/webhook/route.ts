@@ -5,6 +5,8 @@ import { sessionOptions, SessionData } from '@/lib/session'
 import connectDB from '@/lib/mongodb'
 import Bot from '@/lib/models/Bot'
 
+export const dynamic = 'force-dynamic'
+
 // POST - Setup webhook for a bot
 export async function POST(
   request: NextRequest,
@@ -18,7 +20,7 @@ export async function POST(
 
   try {
     await connectDB()
-    const bot = await Bot.findOne({ botId: params.botId, ownerId: session.botId })
+    const bot = await Bot.findOne({ botId: params.botId })
 
     if (!bot) {
       return NextResponse.json({ error: 'Bot tidak ditemukan' }, { status: 404 })
@@ -77,7 +79,7 @@ export async function DELETE(
 
   try {
     await connectDB()
-    const bot = await Bot.findOne({ botId: params.botId, ownerId: session.botId })
+    const bot = await Bot.findOne({ botId: params.botId })
 
     if (!bot) {
       return NextResponse.json({ error: 'Bot tidak ditemukan' }, { status: 404 })

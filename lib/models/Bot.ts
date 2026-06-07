@@ -5,7 +5,6 @@ export interface IBot extends Document {
   botId: string
   botUsername: string
   botName: string
-  ownerId: string
   channels: {
     channelId: string
     channelUsername: string
@@ -24,10 +23,9 @@ export interface IBot extends Document {
 const BotSchema = new Schema<IBot>(
   {
     token: { type: String, required: true, unique: true },
-    botId: { type: String, required: true },
+    botId: { type: String, required: true, unique: true },
     botUsername: { type: String, required: true },
     botName: { type: String, required: true },
-    ownerId: { type: String, required: true },
     channels: [
       {
         channelId: { type: String, required: true },
