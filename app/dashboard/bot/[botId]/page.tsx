@@ -402,18 +402,21 @@ interface Feature {
   name: string
   desc: string
   icon: string
+  category: string
 }
 
 const ALL_FEATURES: Feature[] = [
-  { id: 'webhook', name: 'Webhook', desc: 'Aktifkan bot 24 jam', icon: '🌐' },
-  { id: 'force_join', name: 'Force Join Channel', desc: 'Wajibkan member join channel sebelum kirim pesan', icon: '🔒' },
-  { id: 'protect_group', name: 'Proteksi Grup', desc: 'Tambahkan grup yang ingin dilindungi', icon: '🛡' },
-  { id: 'welcome', name: 'Welcome Message', desc: 'Sambut member baru yang masuk grup', icon: '👋' },
-  { id: 'greeting', name: 'Ucapan Otomatis', desc: 'Kirim ucapan selamat pagi, siang, sore, malam', icon: '🕐' },
-  { id: 'moderation', name: 'Moderasi (Mute/Kick/Ban)', desc: 'Admin bisa mute, kick, ban member via command', icon: '⚔️' },
-  { id: 'banned_words', name: 'Kata Terlarang', desc: 'Hapus pesan yang mengandung kata tertentu + mute', icon: '🤬' },
-  { id: 'anti_forward', name: 'Anti-Forward', desc: 'Larang forward pesan dari luar grup (peringatan 3x lalu mute)', icon: '↩️' },
+  { id: 'webhook', name: 'Webhook', desc: 'Aktifkan bot 24 jam', icon: '🌐', category: 'Dasar' },
+  { id: 'force_join', name: 'Force Join Channel', desc: 'Wajibkan member join channel sebelum kirim pesan', icon: '🔒', category: 'Proteksi' },
+  { id: 'protect_group', name: 'Proteksi Grup', desc: 'Tambahkan grup yang ingin dilindungi', icon: '🛡', category: 'Proteksi' },
+  { id: 'anti_forward', name: 'Anti-Forward', desc: 'Larang forward pesan dari luar grup (peringatan 3x lalu mute)', icon: '↩️', category: 'Proteksi' },
+  { id: 'banned_words', name: 'Kata Terlarang', desc: 'Hapus pesan yang mengandung kata tertentu + mute', icon: '🤬', category: 'Proteksi' },
+  { id: 'welcome', name: 'Welcome Message', desc: 'Sambut member baru yang masuk grup', icon: '👋', category: 'Pesan Otomatis' },
+  { id: 'greeting', name: 'Ucapan Otomatis', desc: 'Kirim ucapan selamat pagi, siang, sore, malam', icon: '🕐', category: 'Pesan Otomatis' },
+  { id: 'moderation', name: 'Moderasi (Mute/Kick/Ban)', desc: 'Admin bisa mute, kick, ban member via command', icon: '⚔️', category: 'Moderasi' },
 ]
+
+const FEATURE_CATEGORIES = ['Dasar', 'Proteksi', 'Pesan Otomatis', 'Moderasi']
 
 export default function BotSettingsPage() {
   const router = useRouter()
@@ -1115,38 +1118,47 @@ export default function BotSettingsPage() {
         {/* ===== ADD FEATURE POPUP ===== */}
         {showAddFeature && (
           <div className="fixed inset-0 bg-black/30 backdrop-blur-sm flex items-center justify-center z-50 px-4" onClick={() => setShowAddFeature(false)}>
-            <div className="bg-white rounded-2xl w-full max-w-sm shadow-xl border border-slate-200 overflow-hidden" onClick={(e) => e.stopPropagation()}>
-              <div className="px-5 py-4 border-b border-slate-100">
+            <div className="bg-white rounded-2xl w-full max-w-sm shadow-xl border border-slate-200 overflow-hidden flex flex-col max-h-[85vh]" onClick={(e) => e.stopPropagation()}>
+              <div className="px-5 py-4 border-b border-slate-100 flex-shrink-0">
                 <h3 className="text-sm font-bold text-slate-800">Tambah Fitur</h3>
                 <p className="text-xs text-slate-500 mt-0.5">Pilih fitur yang ingin ditambahkan</p>
               </div>
-              <div className="p-2">
-                {ALL_FEATURES.map((feature) => {
-                  const isAdded = enabledFeatures.includes(feature.id)
+              <div className="p-3 overflow-y-auto flex-1">
+                {FEATURE_CATEGORIES.map((category) => {
+                  const featuresInCategory = ALL_FEATURES.filter((f) => f.category === category)
+                  if (featuresInCategory.length === 0) return null
                   return (
-                    <button
-                      key={feature.id}
-                      onClick={() => !isAdded && handleAddFeature(feature.id)}
-                      disabled={isAdded}
-                      className={`w-full text-left px-4 py-3 rounded-xl transition-colors flex items-center gap-3 ${
-                        isAdded
-                          ? 'bg-emerald-50/50 cursor-default'
-                          : 'hover:bg-indigo-50 cursor-pointer'
-                      }`}
-                    >
-                      <span className="text-xl">{feature.icon}</span>
-                      <div className="flex-1">
-                        <p className={`text-sm font-medium ${isAdded ? 'text-slate-400' : 'text-slate-700'}`}>{feature.name}</p>
-                        <p className="text-[10px] text-slate-400">{feature.desc}</p>
+                    <div key={category} className="mb-4 last:mb-0">
+                      <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide px-2 mb-1.5">{category}</p>
+                      <div className="space-y-1">
+                        {featuresInCategory.map((feature) => {
+                          const isAdded = enabledFeatures.includes(feature.id)
+                          return (
+                            <button
+                              key={feature.id}
+                              onClick={() => !isAdded && handleAddFeature(feature.id)}
+                              disabled={isAdded}
+                              className={`w-full text-left px-3 py-2.5 rounded-xl transition-colors flex items-center gap-3 ${
+                                isAdded
+                                  ? 'bg-emerald-50/50 cursor-default'
+                                  : 'hover:bg-indigo-50 cursor-pointer'
+                              }`}
+                            >
+                              <span className="text-lg flex-shrink-0">{feature.icon}</span>
+                              <div className="flex-1 min-w-0">
+                                <p className={`text-sm font-medium ${isAdded ? 'text-slate-400' : 'text-slate-700'}`}>{feature.name}</p>
+                                <p className="text-[10px] text-slate-400 leading-tight">{feature.desc}</p>
+                              </div>
+                              {isAdded && <span className="text-emerald-500 text-sm flex-shrink-0">✅</span>}
+                            </button>
+                          )
+                        })}
                       </div>
-                      {isAdded && (
-                        <span className="text-emerald-500 text-sm">✅</span>
-                      )}
-                    </button>
+                    </div>
                   )
                 })}
               </div>
-              <div className="px-5 py-3 border-t border-slate-100">
+              <div className="px-5 py-3 border-t border-slate-100 flex-shrink-0">
                 <button onClick={() => setShowAddFeature(false)} className="w-full py-2 text-xs text-slate-500 hover:text-slate-700 transition-colors">Tutup</button>
               </div>
             </div>
