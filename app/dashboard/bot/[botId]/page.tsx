@@ -236,7 +236,7 @@ function BannedWordsSection({ botId, bot, confirmDelete, setConfirmDelete, handl
 // Anti-Spam Section
 function AntiSpamSection({ botId, bot, confirmDelete, setConfirmDelete, handleDeleteFeature, fetchBot }: any) {
   const [limit, setLimit] = useState(bot.antiSpamLimit || 5)
-  const [interval, setInterval2] = useState(bot.antiSpamInterval || 10)
+  const [spamInterval, setSpamInterval] = useState(bot.antiSpamInterval || 10)
   const [muteDuration, setMuteDuration] = useState(bot.antiSpamMuteDuration || '5m')
   const [saving, setSaving] = useState(false)
 
@@ -244,7 +244,7 @@ function AntiSpamSection({ botId, bot, confirmDelete, setConfirmDelete, handleDe
     setSaving(true)
     await fetch(`/api/bots/${botId}/features`, {
       method: 'PATCH', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ feature: 'anti_spam_settings', message: JSON.stringify({ limit, interval: interval2, muteDuration }) }),
+      body: JSON.stringify({ feature: 'anti_spam_settings', message: JSON.stringify({ limit, interval: spamInterval, muteDuration }) }),
     })
     setSaving(false)
     fetchBot()
@@ -275,7 +275,7 @@ function AntiSpamSection({ botId, bot, confirmDelete, setConfirmDelete, handleDe
           </div>
           <div>
             <label className="block text-[10px] text-slate-500 mb-1">Dalam (detik)</label>
-            <input type="number" value={interval2} onChange={(e) => setInterval2(Number(e.target.value))} min={5} max={120} className="w-full px-2 py-1.5 border border-slate-200 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-indigo-300 bg-slate-50" />
+            <input type="number" value={spamInterval} onChange={(e) => setSpamInterval(Number(e.target.value))} min={5} max={120} className="w-full px-2 py-1.5 border border-slate-200 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-indigo-300 bg-slate-50" />
           </div>
           <div>
             <label className="block text-[10px] text-slate-500 mb-1">Mute durasi</label>
