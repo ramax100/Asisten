@@ -1,5 +1,4 @@
-// This file contains the handleCommand logic
-// Exported to be used by the webhook route
+// Command handler for moderation: /mute, /unmute, /kick, /ban, /unban
 
 export async function handleCommand(message: any, bot: any) {
   const chat = message.chat
@@ -9,36 +8,35 @@ export async function handleCommand(message: any, bot: any) {
   // Only process in groups
   if (chat.type !== 'group' && chat.type !== 'supergroup') return
 
-  // Parse command (remove @botusername)
+  // Parse command
   const parts = text.split(' ')
   const command = parts[0].split('@')[0].toLowerCase()
 
   // Only handle known commands
   if (!['/mute', '/unmute', '/kick', '/ban', '/unban'].includes(command)) return
 
-  // SKIP ADMIN CHECK FOR NOW - allow anyone to use commands for testing
-  // TODO: Re-enable admin check after confirming commands work
-  // Accept commands from:
-  // 1. Anonymous admin (sender_chat === chat)
-  // 2. Creator (status === 'creator')
-  // 3. Administrator (status === 'administrator')
+  // === ADMIN CHECK (re-enabled) ===
+  // Allow if: anonymous admin OR creator OR administrator
   const isAnonymousAdmin = message.sender_chat && String(message.sender_chat.id) === String(chat.id)
-  
+
   if (!isAnonymousAdmin) {
-    // Check regular admin status
+    // Check regular admin status via Telegram API
     try {
       const adminRes = await fetch(
         `https://api.telegram.org/bot${bot.token}/getChatMember?chat_id=${chat.id}&user_id=${user.id}`
       )
       const adminData = await adminRes.json()
-      if (adminData.ok) {
-        const status = adminData.result.status
-        if (status !== 'creator' && status !== 'administrator') {
-          // Not admin - but for now allow anyway for testing
-          // return
-        }
+      if (!adminData.ok) {
+        return // Can't verify, skip
       }
-    } catch {}
+      const status = adminData.result.status
+      if (status !== 'creator' && status !== 'administrator') {
+        // NOT admin - ignore command
+        return
+      }
+    } catch {
+      return
+    }
   }
 
   // Get target user (from reply)
@@ -58,6 +56,21 @@ export async function handleCommand(message: any, bot: any) {
     await sendMsg(bot.token, chat.id, '❌ Tidak bisa action pada bot.')
     return
   }
+
+  // Don't allow action on other admins
+  try {
+    const targetRes = await fetch(
+      `https://api.telegram.org/bot${bot.token}/getChatMember?chat_id=${chat.id}&user_id=${targetUser.id}`
+    )
+    const targetData = await targetRes.json()
+    if (targetData.ok) {
+      const ts = targetData.result.status
+      if (ts === 'creator' || ts === 'administrator') {
+        await sendMsg(bot.token, chat.id, '❌ Tidak bisa action pada admin.')
+        return
+      }
+    }
+  } catch {}
 
   const targetName = targetUser.first_name || 'User'
   const targetMention = `<a href="tg://user?id=${targetUser.id}">${targetName}</a>`
