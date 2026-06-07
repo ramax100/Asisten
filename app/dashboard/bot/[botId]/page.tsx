@@ -667,10 +667,52 @@ export default function BotSettingsPage() {
   const availableFeatures = ALL_FEATURES.filter(f => !enabledFeatures.includes(f.id))
 
   return (
-    <div className="min-h-screen bg-slate-50">
-      {/* Header */}
-      <header className="bg-white border-b border-slate-200 sticky top-0 z-10">
-        <div className="max-w-3xl mx-auto px-4 py-3 flex items-center gap-3">
+    <div className="min-h-screen bg-slate-50 md:flex">
+      {/* ===== SIDEBAR ===== */}
+      <aside className="hidden md:flex md:flex-col w-60 bg-white border-r border-slate-200 min-h-screen sticky top-0">
+        <div className="px-5 py-4 border-b border-slate-100 flex items-center gap-2.5">
+          <div className="w-9 h-9 rounded-lg bg-indigo-600 flex items-center justify-center text-white text-sm font-bold">
+            {bot.botName.charAt(0).toUpperCase()}
+          </div>
+          <div className="min-w-0">
+            <p className="text-sm font-bold text-slate-800 truncate">{bot.botName}</p>
+            <p className="text-[10px] text-slate-400 truncate">@{bot.botUsername}</p>
+          </div>
+        </div>
+        <nav className="flex-1 px-3 py-4 space-y-1">
+          <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide px-2 mb-1">Menu Utama</p>
+          <button onClick={() => router.push('/dashboard')} className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm text-slate-600 hover:bg-slate-50 transition-colors">
+            <span>📊</span> Dashboard
+          </button>
+          <button onClick={() => router.push('/dashboard')} className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm text-indigo-600 bg-indigo-50 font-medium">
+            <span>⚙️</span> Kelola Bot
+          </button>
+
+          <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide px-2 mb-1 mt-4">Kelola</p>
+          <button onClick={() => router.push('/dashboard')} className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm text-slate-600 hover:bg-slate-50 transition-colors">
+            <span>➕</span> Tambah Bot
+          </button>
+          <button onClick={() => router.push('/dashboard')} className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm text-slate-600 hover:bg-slate-50 transition-colors">
+            <span>🩺</span> Diagnostik
+          </button>
+
+          <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide px-2 mb-1 mt-4">Referensi</p>
+          <button onClick={() => setShowAddFeature(true)} className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm text-slate-600 hover:bg-slate-50 transition-colors">
+            <span>✨</span> Tambah Fitur
+          </button>
+        </nav>
+        <div className="px-3 py-4 border-t border-slate-100">
+          <button onClick={() => router.push('/dashboard')} className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm text-red-500 hover:bg-red-50 transition-colors">
+            <span>↩️</span> Kembali ke Dashboard
+          </button>
+        </div>
+      </aside>
+
+      {/* ===== MAIN CONTENT ===== */}
+      <div className="flex-1 min-w-0">
+      {/* Mobile Header */}
+      <header className="md:hidden bg-white border-b border-slate-200 sticky top-0 z-10">
+        <div className="px-4 py-3 flex items-center gap-3">
           <button onClick={() => router.push('/dashboard')} className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-slate-100 text-slate-400 hover:text-slate-700 transition-all">
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
           </button>
@@ -680,6 +722,11 @@ export default function BotSettingsPage() {
           </div>
         </div>
       </header>
+
+      <div className="max-w-3xl mx-auto px-4 pt-6">
+        <h1 className="hidden md:block text-xl font-bold text-slate-800">Kelola: {bot.botName}</h1>
+        <button onClick={() => router.push('/dashboard')} className="hidden md:block text-xs text-indigo-600 hover:underline mt-1 mb-2">← Kembali ke Dashboard</button>
+      </div>
 
       <main className="max-w-3xl mx-auto px-4 py-6 space-y-4">
 
@@ -1165,6 +1212,7 @@ export default function BotSettingsPage() {
           </div>
         )}
       </main>
+      </div>
     </div>
   )
 }
