@@ -18,6 +18,7 @@ interface BotDetail {
   botId: string
   botUsername: string
   botName: string
+  botToken: string
   channels: Channel[]
   groups: Group[]
   isActive: boolean
@@ -213,6 +214,52 @@ export default function BotSettingsPage() {
       </header>
 
       <main className="max-w-3xl mx-auto px-4 py-6 space-y-3">
+
+        {/* Bot Info Card */}
+        <section className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+          <div className="px-4 py-3 border-b border-slate-100 flex items-center gap-2">
+            <span className="text-base">🤖</span>
+            <h2 className="text-sm font-semibold text-slate-800">Info Bot</h2>
+            <span className="ml-auto text-[10px] text-slate-400 bg-slate-100 px-2 py-0.5 rounded-md">Bot Utama</span>
+          </div>
+          <div className="divide-y divide-slate-100">
+            <div className="px-4 py-3 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <span className="text-sm">📡</span>
+                <span className="text-xs text-slate-600">Status</span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <div className={`w-2 h-2 rounded-full ${bot.webhookUrl ? 'bg-emerald-400 animate-pulse' : 'bg-slate-300'}`}></div>
+                <span className={`text-xs font-medium ${bot.webhookUrl ? 'text-emerald-600' : 'text-slate-400'}`}>
+                  {bot.webhookUrl ? 'Online' : 'Offline'}
+                </span>
+              </div>
+            </div>
+            <div className="px-4 py-3 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <span className="text-sm">👤</span>
+                <span className="text-xs text-slate-600">Nama</span>
+              </div>
+              <span className="text-xs font-medium text-slate-800">{bot.botName}</span>
+            </div>
+            <div className="px-4 py-3 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <span className="text-sm">🆔</span>
+                <span className="text-xs text-slate-600">Username</span>
+              </div>
+              <span className="text-xs font-medium text-slate-800">@{bot.botUsername}</span>
+            </div>
+            <div className="px-4 py-3 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <span className="text-sm">🔑</span>
+                <span className="text-xs text-slate-600">Token</span>
+              </div>
+              <span className="text-xs font-mono text-slate-500">
+                {bot.botToken ? `${bot.botToken.slice(0, 8)}...${bot.botToken.slice(-4)}` : `${bot.botId.slice(0, 5)}...`}
+              </span>
+            </div>
+          </div>
+        </section>
 
         {/* WEBHOOK */}
         {activeFeatures.includes('webhook') && (
