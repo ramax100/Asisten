@@ -26,6 +26,7 @@ interface BotDetail {
   forceJoinEnabled: boolean
   forceJoinMessage: string
   successMessage: string
+  welcomeMessage: string
   enabledFeatures: string[]
 }
 
@@ -40,6 +41,7 @@ const ALL_FEATURES: Feature[] = [
   { id: 'webhook', name: 'Webhook', desc: 'Aktifkan bot 24 jam', icon: '🌐' },
   { id: 'force_join', name: 'Force Join Channel', desc: 'Wajibkan member join channel sebelum kirim pesan', icon: '🔒' },
   { id: 'protect_group', name: 'Proteksi Grup', desc: 'Tambahkan grup yang ingin dilindungi', icon: '🛡' },
+  { id: 'welcome', name: 'Welcome Message', desc: 'Sambut member baru yang masuk grup', icon: '👋' },
 ]
 
 export default function BotSettingsPage() {
@@ -64,8 +66,10 @@ export default function BotSettingsPage() {
   // Edit text
   const [editingWarning, setEditingWarning] = useState(false)
   const [editingSuccess, setEditingSuccess] = useState(false)
+  const [editingWelcome, setEditingWelcome] = useState(false)
   const [warningText, setWarningText] = useState('')
   const [successText, setSuccessText] = useState('')
+  const [welcomeText, setWelcomeText] = useState('')
   const [saving, setSaving] = useState(false)
 
   // Delete confirm
@@ -78,6 +82,7 @@ export default function BotSettingsPage() {
       setEnabledFeatures(bot.enabledFeatures || [])
       setWarningText(bot.forceJoinMessage || '')
       setSuccessText(bot.successMessage || '')
+      setWelcomeText(bot.welcomeMessage || '')
     }
   }, [bot])
 
@@ -188,6 +193,39 @@ export default function BotSettingsPage() {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ feature: 'success_message', message: '' }),
+    })
+    fetchBot()
+  }
+
+  // Welcome message handlers
+  const handleSaveWelcome = async () => {
+    setSaving(true)
+    await fetch(`/api/bots/${botId}/features`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ feature: 'welcome_message', message: welcomeText }),
+    })
+    setEditingWelcome(false)
+    setSaving(false)
+    fetchBot()
+  }
+
+  const handleDeleteWelcome = async () => {
+    await fetch(`/api/bots/${botId}/features`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ feature: 'welcome_message', message: '__disabled__' }),
+    })
+    setWelcomeText('')
+    setEditingWelcome(false)
+    fetchBot()
+  }
+
+  const handleEnableWelcome = async () => {
+    await fetch(`/api/bots/${botId}/features`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ feature: 'welcome_message', message: '' }),
     })
     fetchBot()
   }
@@ -494,6 +532,62 @@ export default function BotSettingsPage() {
                       <button onClick={() => handleRemoveGroup(gr.groupId)} className="text-xs text-red-400 hover:text-red-600 px-2 py-0.5 rounded hover:bg-red-50 transition-colors">Hapus</button>
                     </div>
                   ))}
+                </div>
+              )}
+            </div>
+          </section>
+        )}
+
+        {/* WELCOME MESSAGE */}
+        {enabledFeatures.includes('welcome') && (
+          <section className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+            <div className="px-4 py-3 border-b border-slate-100 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <span>👋</span>
+                <h2 className="text-sm font-semibold text-slate-800">Welcome Message</h2>
+                {bot.welcomeMessage === '__disabled__' ? (
+                  <span className="text-[9px] bg-red-100 text-red-500 px-1 py-0.5 rounded font-medium">Nonaktif</span>
+                ) : bot.welcomeMessage ? (
+                  <span className="text-[9px] bg-emerald-100 text-emerald-600 px-1 py-0.5 rounded font-medium">Aktif</span>
+                ) : (
+                  <span className="text-[9px] bg-slate-100 text-slate-400 px-1 py-0.5 rounded font-medium">Default</span>
+                )}
+              </div>
+              {confirmDelete === 'welcome' ? (
+                <div className="flex items-center gap-2">
+                  <button onClick={() => handleDeleteFeature('welcome')} className="text-xs bg-red-500 text-white px-2 py-0.5 rounded">Ya</button>
+                  <button onClick={() => setConfirmDelete('')} className="text-xs text-slate-400">Batal</button>
+                </div>
+              ) : (
+                <button onClick={() => setConfirmDelete('welcome')} className="text-xs text-slate-400 hover:text-red-500 transition-colors">Hapus</button>
+              )}
+            </div>
+            <div className="px-4 py-4">
+              <p className="text-xs text-slate-500 mb-3">Pesan otomatis yang dikirim saat member baru bergabung di grup.</p>
+
+              {/* Re-enable button when disabled */}
+              {bot.welcomeMessage === '__disabled__' && !editingWelcome && (
+                <div className="mb-3 p-2.5 bg-red-50 rounded-lg border border-red-100 flex items-center justify-between">
+                  <span className="text-xs text-red-600">Welcome message dinonaktifkan</span>
+                  <button onClick={handleEnableWelcome} className="text-xs bg-emerald-500 hover:bg-emerald-600 text-white px-2.5 py-1 rounded-lg transition-colors">Aktifkan Kembali</button>
+                </div>
+              )}
+
+              {/* Edit Welcome */}
+              <button onClick={() => setEditingWelcome(!editingWelcome)} className={`text-xs px-2.5 py-1.5 rounded-lg border transition-colors mb-3 ${editingWelcome ? 'border-orange-300 bg-orange-50 text-orange-600' : 'border-slate-200 text-slate-500 hover:border-orange-200 hover:text-orange-500'}`}>
+                Edit Pesan
+              </button>
+
+              {editingWelcome && (
+                <div className="p-3 bg-orange-50/50 rounded-lg border border-orange-100">
+                  <label className="block text-xs text-orange-700 mb-1.5 font-medium">Pesan Welcome:</label>
+                  <textarea value={welcomeText} onChange={(e) => setWelcomeText(e.target.value)} placeholder={"👋 Selamat datang {mention} di grup!\n\nSilakan baca rules dan jangan lupa join channel kami."} rows={4} className="w-full px-3 py-2 border border-orange-200 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-orange-300 resize-none bg-white" />
+                  <p className="text-[10px] text-orange-400 mt-1">Variabel: {'{mention}'} {'{name}'} {'{username}'} {'{id}'} {'{group}'}</p>
+                  <div className="flex gap-2 mt-2">
+                    <button onClick={handleSaveWelcome} disabled={saving} className="px-3 py-1.5 bg-orange-600 hover:bg-orange-700 disabled:bg-slate-300 text-white text-xs rounded-lg">{saving ? '...' : 'Simpan'}</button>
+                    <button onClick={handleDeleteWelcome} className="px-3 py-1.5 text-xs text-red-500 border border-red-200 rounded-lg hover:bg-red-50">Hapus Pesan</button>
+                    <button onClick={() => setEditingWelcome(false)} className="px-3 py-1.5 text-xs text-slate-500 border border-slate-200 rounded-lg hover:bg-slate-50">Batal</button>
+                  </div>
                 </div>
               )}
             </div>

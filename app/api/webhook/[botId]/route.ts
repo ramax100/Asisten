@@ -20,7 +20,12 @@ export async function POST(
 
     // Handle different update types
     if (update.message) {
-      await handleMessage(update.message, bot)
+      // Check for new member join
+      if (update.message.new_chat_members) {
+        await handleNewMembers(update.message, bot)
+      } else {
+        await handleMessage(update.message, bot)
+      }
     } else if (update.callback_query) {
       await handleCallbackQuery(update.callback_query, bot)
     } else if (update.my_chat_member) {
@@ -125,6 +130,60 @@ async function answerCallbackQuery(token: string, callbackQueryId: string, text:
     })
   } catch (error) {
     console.error('Answer callback error:', error)
+  }
+}
+
+// Handle new members joining the group
+async function handleNewMembers(message: any, bot: any) {
+  const chat = message.chat
+  const newMembers = message.new_chat_members
+
+  // Skip if welcome is not enabled
+  if (!bot.enabledFeatures || !bot.enabledFeatures.includes('welcome')) {
+    return
+  }
+
+  // Skip if welcome message is disabled
+  if (bot.welcomeMessage === '__disabled__') {
+    return
+  }
+
+  // Only process group messages
+  if (chat.type !== 'group' && chat.type !== 'supergroup') {
+    return
+  }
+
+  for (const member of newMembers) {
+    // Skip bots
+    if (member.is_bot) continue
+
+    const userName = member.first_name || 'User'
+    const userMention = member.username ? `@${member.username}` : userName
+    const mention = `<a href="tg://user?id=${member.id}">${userName}</a>`
+
+    let text = bot.welcomeMessage || `👋 Selamat datang <b>${userName}</b> di grup <b>${chat.title}</b>!\n\nSilakan baca rules dan perkenalkan dirimu.`
+
+    // Replace variables
+    text = text.replace(/{mention}/g, mention)
+    text = text.replace(/{name}/g, userName)
+    text = text.replace(/{username}/g, member.username ? `@${member.username}` : userName)
+    text = text.replace(/{id}/g, String(member.id))
+    text = text.replace(/{user}/g, `<b>${userMention}</b>`)
+    text = text.replace(/{group}/g, chat.title || 'grup')
+
+    try {
+      await fetch(`https://api.telegram.org/bot${bot.token}/sendMessage`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          chat_id: chat.id,
+          text,
+          parse_mode: 'HTML',
+        }),
+      })
+    } catch (error) {
+      console.error('Welcome message error:', error)
+    }
   }
 }
 

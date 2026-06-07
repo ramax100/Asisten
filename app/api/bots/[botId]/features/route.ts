@@ -38,6 +38,8 @@ export async function PATCH(
       bot.forceJoinMessage = message || ''
     } else if (feature === 'success_message') {
       bot.successMessage = message || ''
+    } else if (feature === 'welcome_message') {
+      bot.welcomeMessage = message || ''
     }
 
     await bot.save()
@@ -83,6 +85,8 @@ export async function DELETE(
       bot.successMessage = ''
     } else if (feature === 'protect_group') {
       bot.groups = []
+    } else if (feature === 'welcome') {
+      bot.welcomeMessage = ''
     }
 
     await bot.save()

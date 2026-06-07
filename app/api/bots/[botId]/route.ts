@@ -38,6 +38,7 @@ export async function GET(
       forceJoinEnabled: bot.forceJoinEnabled,
       forceJoinMessage: bot.forceJoinMessage,
       successMessage: bot.successMessage,
+      welcomeMessage: bot.welcomeMessage,
       enabledFeatures: bot.enabledFeatures || [],
     }
 
