@@ -123,6 +123,30 @@ async function handleMessage(message: any, bot: any) {
     return
   }
 
+  // Skip forwarded messages from linked channel (auto-forward)
+  if (message.is_automatic_forward) {
+    return
+  }
+
+  // Skip forwarded messages from our own channels
+  if (message.forward_from_chat) {
+    const forwardedChatId = String(message.forward_from_chat.id)
+    const isOurChannel = bot.channels.find((c: any) => c.channelId === forwardedChatId)
+    if (isOurChannel) {
+      return
+    }
+  }
+
+  // Skip messages from channel posts (sender_chat = channel)
+  if (message.sender_chat) {
+    return
+  }
+
+  // Skip messages from bots
+  if (user.is_bot) {
+    return
+  }
+
   // Skip messages from admins
   const isAdmin = await checkIfAdmin(bot.token, chat.id, user.id)
   if (isAdmin) {
