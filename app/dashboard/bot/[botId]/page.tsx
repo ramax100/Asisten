@@ -173,6 +173,25 @@ export default function BotSettingsPage() {
     fetchBot()
   }
 
+  // Re-enable messages (reset to default)
+  const handleEnableWarning = async () => {
+    await fetch(`/api/bots/${botId}/features`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ feature: 'force_join_message', message: '' }),
+    })
+    fetchBot()
+  }
+
+  const handleEnableSuccess = async () => {
+    await fetch(`/api/bots/${botId}/features`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ feature: 'success_message', message: '' }),
+    })
+    fetchBot()
+  }
+
   // === CHANNEL / GROUP / WEBHOOK ===
   const handleAddChannel = async (e: React.FormEvent) => {
     e.preventDefault(); setAddingChannel(true); setChannelError('')
@@ -369,6 +388,20 @@ export default function BotSettingsPage() {
                   )}
                 </button>
               </div>
+
+              {/* Re-enable buttons when disabled */}
+              {bot.forceJoinMessage === '__disabled__' && !editingWarning && (
+                <div className="mb-3 p-2.5 bg-red-50 rounded-lg border border-red-100 flex items-center justify-between">
+                  <span className="text-xs text-red-600">Pesan Warning dinonaktifkan</span>
+                  <button onClick={handleEnableWarning} className="text-xs bg-emerald-500 hover:bg-emerald-600 text-white px-2.5 py-1 rounded-lg transition-colors">Aktifkan Kembali</button>
+                </div>
+              )}
+              {bot.successMessage === '__disabled__' && !editingSuccess && (
+                <div className="mb-3 p-2.5 bg-red-50 rounded-lg border border-red-100 flex items-center justify-between">
+                  <span className="text-xs text-red-600">Pesan Sukses dinonaktifkan</span>
+                  <button onClick={handleEnableSuccess} className="text-xs bg-emerald-500 hover:bg-emerald-600 text-white px-2.5 py-1 rounded-lg transition-colors">Aktifkan Kembali</button>
+                </div>
+              )}
 
               {/* Edit Warning */}
               {editingWarning && (
