@@ -39,6 +39,10 @@ export async function GET(
       forceJoinMessage: bot.forceJoinMessage,
       successMessage: bot.successMessage,
       welcomeMessage: bot.welcomeMessage,
+      greeting_pagi: bot.greetingPagi,
+      greeting_siang: bot.greetingSiang,
+      greeting_sore: bot.greetingSore,
+      greeting_malam: bot.greetingMalam,
       enabledFeatures: bot.enabledFeatures || [],
     }
 

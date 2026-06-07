@@ -3,6 +3,81 @@
 import { useEffect, useState } from 'react'
 import { useRouter, useParams } from 'next/navigation'
 
+// Greeting Editor sub-component
+function GreetingEditor({ waktu, value, botId, onSaved }: { waktu: string; value: string; botId: string; onSaved: () => void }) {
+  const [editing, setEditing] = useState(false)
+  const [text, setText] = useState(value)
+  const [saving, setSaving] = useState(false)
+
+  useEffect(() => { setText(value) }, [value])
+
+  const handleSave = async () => {
+    setSaving(true)
+    await fetch(`/api/bots/${botId}/features`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ feature: `greeting_${waktu}`, message: text }),
+    })
+    setSaving(false)
+    setEditing(false)
+    onSaved()
+  }
+
+  const handleDisable = async () => {
+    await fetch(`/api/bots/${botId}/features`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ feature: `greeting_${waktu}`, message: '__disabled__' }),
+    })
+    setEditing(false)
+    onSaved()
+  }
+
+  const handleEnable = async () => {
+    await fetch(`/api/bots/${botId}/features`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ feature: `greeting_${waktu}`, message: '' }),
+    })
+    onSaved()
+  }
+
+  if (value === '' && !editing) {
+    // Check if parent marked as disabled
+    return (
+      <div className="flex gap-2">
+        <button onClick={() => setEditing(true)} className="text-[10px] text-indigo-500 hover:text-indigo-700">Edit</button>
+        <button onClick={handleDisable} className="text-[10px] text-red-400 hover:text-red-600">Nonaktifkan</button>
+      </div>
+    )
+  }
+
+  if (editing) {
+    return (
+      <div className="mt-2">
+        <textarea value={text} onChange={(e) => setText(e.target.value)} placeholder={`Selamat ${waktu} semuanya! Semoga hari ini menyenangkan 😊`} rows={2} className="w-full px-2.5 py-1.5 border border-slate-200 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-indigo-300 resize-none bg-white" />
+        <div className="flex gap-2 mt-1.5">
+          <button onClick={handleSave} disabled={saving} className="text-[10px] bg-indigo-600 text-white px-2 py-0.5 rounded hover:bg-indigo-700">{saving ? '...' : 'Simpan'}</button>
+          <button onClick={handleDisable} className="text-[10px] text-red-500 hover:text-red-700">Nonaktifkan</button>
+          <button onClick={() => setEditing(false)} className="text-[10px] text-slate-400 hover:text-slate-600">Batal</button>
+        </div>
+      </div>
+    )
+  }
+
+  // Has value set
+  return (
+    <div>
+      <p className="text-[10px] text-slate-500 italic mb-1 truncate">"{value}"</p>
+      <div className="flex gap-2">
+        <button onClick={() => setEditing(true)} className="text-[10px] text-indigo-500 hover:text-indigo-700">Edit</button>
+        <button onClick={handleEnable} className="text-[10px] text-emerald-500 hover:text-emerald-700">Reset Default</button>
+        <button onClick={handleDisable} className="text-[10px] text-red-400 hover:text-red-600">Nonaktifkan</button>
+      </div>
+    </div>
+  )
+}
+
 interface Channel {
   channelId: string
   channelUsername: string
@@ -42,6 +117,7 @@ const ALL_FEATURES: Feature[] = [
   { id: 'force_join', name: 'Force Join Channel', desc: 'Wajibkan member join channel sebelum kirim pesan', icon: '🔒' },
   { id: 'protect_group', name: 'Proteksi Grup', desc: 'Tambahkan grup yang ingin dilindungi', icon: '🛡' },
   { id: 'welcome', name: 'Welcome Message', desc: 'Sambut member baru yang masuk grup', icon: '👋' },
+  { id: 'greeting', name: 'Ucapan Otomatis', desc: 'Kirim ucapan selamat pagi, siang, sore, malam', icon: '🕐' },
 ]
 
 export default function BotSettingsPage() {
@@ -590,6 +666,65 @@ export default function BotSettingsPage() {
                   </div>
                 </div>
               )}
+            </div>
+          </section>
+        )}
+
+        {/* GREETING / UCAPAN OTOMATIS */}
+        {enabledFeatures.includes('greeting') && (
+          <section className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+            <div className="px-4 py-3 border-b border-slate-100 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <span>🕐</span>
+                <h2 className="text-sm font-semibold text-slate-800">Ucapan Otomatis</h2>
+              </div>
+              {confirmDelete === 'greeting' ? (
+                <div className="flex items-center gap-2">
+                  <button onClick={() => handleDeleteFeature('greeting')} className="text-xs bg-red-500 text-white px-2 py-0.5 rounded">Ya</button>
+                  <button onClick={() => setConfirmDelete('')} className="text-xs text-slate-400">Batal</button>
+                </div>
+              ) : (
+                <button onClick={() => setConfirmDelete('greeting')} className="text-xs text-slate-400 hover:text-red-500 transition-colors">Hapus</button>
+              )}
+            </div>
+            <div className="px-4 py-4">
+              <p className="text-xs text-slate-500 mb-3">Bot akan kirim ucapan otomatis ke grup sesuai waktu (WIB).</p>
+              <p className="text-[10px] text-slate-400 mb-4">Panggil endpoint <span className="font-mono bg-slate-100 px-1 rounded">/api/cron/greeting</span> setiap jam menggunakan <a href="https://cron-job.org" target="_blank" className="text-indigo-500 hover:underline">cron-job.org</a> (gratis)</p>
+
+              <div className="space-y-3">
+                {(['pagi', 'siang', 'sore', 'malam'] as const).map((waktu) => {
+                  const icons: Record<string, string> = { pagi: '🌅', siang: '☀️', sore: '🌇', malam: '🌙' }
+                  const times: Record<string, string> = { pagi: '05:00 - 10:00', siang: '10:00 - 15:00', sore: '15:00 - 18:00', malam: '18:00 - 05:00' }
+                  const key = `greeting_${waktu}` as string
+                  const value = (bot as any)[key] || ''
+                  const isDisabled = value === '__disabled__'
+
+                  return (
+                    <div key={waktu} className="bg-slate-50 rounded-lg border border-slate-100 p-3">
+                      <div className="flex items-center justify-between mb-2">
+                        <div className="flex items-center gap-2">
+                          <span>{icons[waktu]}</span>
+                          <span className="text-xs font-medium text-slate-700 capitalize">Selamat {waktu}</span>
+                          <span className="text-[9px] text-slate-400">({times[waktu]} WIB)</span>
+                        </div>
+                        {isDisabled ? (
+                          <span className="text-[9px] bg-red-100 text-red-500 px-1 py-0.5 rounded font-medium">Nonaktif</span>
+                        ) : value ? (
+                          <span className="text-[9px] bg-emerald-100 text-emerald-600 px-1 py-0.5 rounded font-medium">Custom</span>
+                        ) : (
+                          <span className="text-[9px] bg-slate-100 text-slate-400 px-1 py-0.5 rounded font-medium">Default</span>
+                        )}
+                      </div>
+                      <GreetingEditor
+                        waktu={waktu}
+                        value={isDisabled ? '' : value}
+                        botId={botId}
+                        onSaved={fetchBot}
+                      />
+                    </div>
+                  )
+                })}
+              </div>
             </div>
           </section>
         )}

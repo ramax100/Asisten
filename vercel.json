@@ -1,5 +1,11 @@
 {
   "framework": "nextjs",
+  "crons": [
+    {
+      "path": "/api/cron/greeting",
+      "schedule": "0 */3 * * *"
+    }
+  ],
   "functions": {
     "app/api/webhook/[botId]/route.ts": {
       "maxDuration": 10

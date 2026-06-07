@@ -48,6 +48,10 @@ const BotSchema = new Schema<IBot>(
     forceJoinMessage: { type: String, default: '' },
     successMessage: { type: String, default: '' },
     welcomeMessage: { type: String, default: '' },
+    greetingPagi: { type: String, default: '' },
+    greetingSiang: { type: String, default: '' },
+    greetingSore: { type: String, default: '' },
+    greetingMalam: { type: String, default: '' },
     enabledFeatures: [{ type: String }],
   },
   { timestamps: true }

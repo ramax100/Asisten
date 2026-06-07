@@ -40,6 +40,14 @@ export async function PATCH(
       bot.successMessage = message || ''
     } else if (feature === 'welcome_message') {
       bot.welcomeMessage = message || ''
+    } else if (feature === 'greeting_pagi') {
+      bot.greetingPagi = message || ''
+    } else if (feature === 'greeting_siang') {
+      bot.greetingSiang = message || ''
+    } else if (feature === 'greeting_sore') {
+      bot.greetingSore = message || ''
+    } else if (feature === 'greeting_malam') {
+      bot.greetingMalam = message || ''
     }
 
     await bot.save()
@@ -87,6 +95,11 @@ export async function DELETE(
       bot.groups = []
     } else if (feature === 'welcome') {
       bot.welcomeMessage = ''
+    } else if (feature === 'greeting') {
+      bot.greetingPagi = ''
+      bot.greetingSiang = ''
+      bot.greetingSore = ''
+      bot.greetingMalam = ''
     }
 
     await bot.save()
