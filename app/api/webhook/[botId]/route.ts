@@ -378,19 +378,27 @@ async function handleMessage(message: any, bot: any) {
     const limit = bot.antiSpamLimit || 5
 
     try {
-      const counter = await Counter.findOne({ key })
+      // Use findOneAndUpdate with upsert to avoid race conditions
+      const counter = await Counter.findOneAndUpdate(
+        { key },
+        { $setOnInsert: { key, count: 0, firstMsg: now } },
+        { upsert: true, new: true }
+      )
 
-      if (!counter) {
-        await Counter.create({ key, count: 1, firstMsg: now })
-      } else if ((now - counter.firstMsg) > interval) {
+      // Reset if interval passed
+      if ((now - counter.firstMsg) > interval) {
         counter.count = 1
         counter.firstMsg = now
         await counter.save()
       } else {
-        counter.count += 1
-        await counter.save()
+        // Increment
+        const updated = await Counter.findOneAndUpdate(
+          { key },
+          { $inc: { count: 1 } },
+          { new: true }
+        )
 
-        if (counter.count > limit) {
+        if (updated && updated.count > limit) {
           const muteDuration = bot.antiSpamMuteDuration || '5m'
           const seconds = parseDurationSimple(muteDuration)
           const untilDate = Math.floor(Date.now() / 1000) + seconds
@@ -408,8 +416,8 @@ async function handleMessage(message: any, bot: any) {
             }),
           })
 
-          counter.count = 0
-          await counter.save()
+          // Reset counter
+          await Counter.findOneAndUpdate({ key }, { count: 0, firstMsg: now })
 
           const customMsg = bot.antiSpamMessage || `🚫 ${userMention} di-mute ${muteDuration} karena spam (>${limit} pesan dalam ${bot.antiSpamInterval || 10} detik).`
           const finalMsg = customMsg.replace(/{mention}/g, userMention).replace(/{name}/g, userName).replace(/{duration}/g, muteDuration).replace(/{limit}/g, String(limit))
