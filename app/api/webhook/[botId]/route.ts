@@ -23,13 +23,9 @@ export async function POST(
       // Check for new member join
       if (update.message.new_chat_members) {
         await handleNewMembers(update.message, bot)
-      } else if (update.message.text && update.message.text.startsWith('/')) {
-        // Handle admin commands first
+      } else if (update.message.text && update.message.text.match(/^\/(mute|unmute|kick|ban|unban)/)) {
+        // Handle moderation commands only - skip force join check
         await handleCommand(update.message, bot)
-        // Also check force join for non-admin users
-        if (!update.message.text.match(/^\/(mute|unmute|kick|ban|unban)/)) {
-          await handleMessage(update.message, bot)
-        }
       } else {
         await handleMessage(update.message, bot)
       }
