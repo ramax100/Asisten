@@ -449,6 +449,9 @@ export default function BotSettingsPage() {
   // Delete confirm
   const [confirmDelete, setConfirmDelete] = useState('')
 
+  // Active tab
+  const [activeTab, setActiveTab] = useState('info')
+
   useEffect(() => { fetchBot() }, [botId])
 
   useEffect(() => {
@@ -728,9 +731,35 @@ export default function BotSettingsPage() {
         <button onClick={() => router.push('/dashboard')} className="hidden md:block text-xs text-indigo-600 hover:underline mt-1 mb-2">← Kembali ke Dashboard</button>
       </div>
 
+      {/* ===== TAB BAR ===== */}
+      <div className="max-w-3xl mx-auto px-4 pt-2">
+        <div className="flex gap-1.5 overflow-x-auto pb-1 -mx-1 px-1">
+          {[
+            { id: 'info', label: 'Info & Token', icon: '🤖' },
+            { id: 'channel', label: 'Channel & Grup', icon: '🔗' },
+            { id: 'pesan', label: 'Pesan Bot', icon: '💬' },
+            { id: 'sapaan', label: 'Sapaan Otomatis', icon: '👋' },
+            { id: 'moderasi', label: 'Moderasi', icon: '🛡' },
+          ].map((tab) => (
+            <button
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id)}
+              className={`flex-shrink-0 flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-xs font-medium transition-colors whitespace-nowrap ${
+                activeTab === tab.id
+                  ? 'bg-indigo-600 text-white shadow-sm'
+                  : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'
+              }`}
+            >
+              <span>{tab.icon}</span> {tab.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
       <main className="max-w-3xl mx-auto px-4 py-6 space-y-4">
 
         {/* ===== INFO BOT ===== */}
+        {activeTab === 'info' && (
         <section className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
           <div className="px-4 py-3 border-b border-slate-100 flex items-center gap-2">
             <span className="text-base">🤖</span>
@@ -760,11 +789,12 @@ export default function BotSettingsPage() {
             </div>
           </div>
         </section>
+        )}
 
         {/* ===== ENABLED FEATURES ===== */}
 
         {/* WEBHOOK */}
-        {enabledFeatures.includes('webhook') && (
+        {activeTab === 'info' && enabledFeatures.includes('webhook') && (
           <section className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
             <div className="px-4 py-3 border-b border-slate-100 flex items-center justify-between">
               <div className="flex items-center gap-2">
@@ -799,7 +829,7 @@ export default function BotSettingsPage() {
         )}
 
         {/* FORCE JOIN */}
-        {enabledFeatures.includes('force_join') && (
+        {activeTab === 'channel' && enabledFeatures.includes('force_join') && (
           <section className={`bg-white rounded-xl border shadow-sm overflow-hidden ${bot.forceJoinEnabled === false ? 'border-yellow-200' : 'border-slate-200'}`}>
             <div className="px-4 py-3 border-b border-slate-100 flex items-center justify-between">
               <div className="flex items-center gap-2">
@@ -918,7 +948,7 @@ export default function BotSettingsPage() {
         )}
 
         {/* PROTECT GROUP */}
-        {enabledFeatures.includes('protect_group') && (
+        {activeTab === 'channel' && enabledFeatures.includes('protect_group') && (
           <section className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
             <div className="px-4 py-3 border-b border-slate-100 flex items-center justify-between">
               <div className="flex items-center gap-2">
@@ -960,7 +990,7 @@ export default function BotSettingsPage() {
         )}
 
         {/* WELCOME MESSAGE */}
-        {enabledFeatures.includes('welcome') && (
+        {activeTab === 'pesan' && enabledFeatures.includes('welcome') && (
           <section className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
             <div className="px-4 py-3 border-b border-slate-100 flex items-center justify-between">
               <div className="flex items-center gap-2">
@@ -1016,7 +1046,7 @@ export default function BotSettingsPage() {
         )}
 
         {/* GREETING / UCAPAN OTOMATIS */}
-        {enabledFeatures.includes('greeting') && (
+        {activeTab === 'sapaan' && enabledFeatures.includes('greeting') && (
           <section className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
             <div className="px-4 py-3 border-b border-slate-100 flex items-center justify-between">
               <div className="flex items-center gap-2">
@@ -1075,7 +1105,7 @@ export default function BotSettingsPage() {
         )}
 
         {/* MODERATION */}
-        {enabledFeatures.includes('moderation') && (
+        {activeTab === 'moderasi' && enabledFeatures.includes('moderation') && (
           <section className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
             <div className="px-4 py-3 border-b border-slate-100 flex items-center justify-between">
               <div className="flex items-center gap-2">
@@ -1140,7 +1170,7 @@ export default function BotSettingsPage() {
         )}
 
         {/* BANNED WORDS */}
-        {enabledFeatures.includes('banned_words') && (
+        {activeTab === 'moderasi' && enabledFeatures.includes('banned_words') && (
           <BannedWordsSection botId={botId} bot={bot} confirmDelete={confirmDelete} setConfirmDelete={setConfirmDelete} handleDeleteFeature={handleDeleteFeature} fetchBot={fetchBot} />
         )}
 
@@ -1150,8 +1180,34 @@ export default function BotSettingsPage() {
         )}
 
         {/* ANTI-FORWARD */}
-        {enabledFeatures.includes('anti_forward') && (
+        {activeTab === 'channel' && enabledFeatures.includes('anti_forward') && (
           <AntiForwardSection botId={botId} bot={bot} confirmDelete={confirmDelete} setConfirmDelete={setConfirmDelete} handleDeleteFeature={handleDeleteFeature} fetchBot={fetchBot} />
+        )}
+
+        {/* ===== EMPTY STATE PER TAB ===== */}
+        {activeTab === 'channel' && !enabledFeatures.includes('force_join') && !enabledFeatures.includes('protect_group') && !enabledFeatures.includes('anti_forward') && (
+          <div className="bg-white rounded-xl border border-slate-200 p-8 text-center">
+            <p className="text-slate-500 text-sm">Belum ada fitur Channel & Grup</p>
+            <p className="text-slate-400 text-xs mt-1">Klik "+ Tambah Fitur" untuk menambahkan</p>
+          </div>
+        )}
+        {activeTab === 'pesan' && !enabledFeatures.includes('welcome') && (
+          <div className="bg-white rounded-xl border border-slate-200 p-8 text-center">
+            <p className="text-slate-500 text-sm">Belum ada fitur Pesan Bot</p>
+            <p className="text-slate-400 text-xs mt-1">Klik "+ Tambah Fitur" untuk menambahkan</p>
+          </div>
+        )}
+        {activeTab === 'sapaan' && !enabledFeatures.includes('greeting') && (
+          <div className="bg-white rounded-xl border border-slate-200 p-8 text-center">
+            <p className="text-slate-500 text-sm">Belum ada fitur Sapaan Otomatis</p>
+            <p className="text-slate-400 text-xs mt-1">Klik "+ Tambah Fitur" untuk menambahkan</p>
+          </div>
+        )}
+        {activeTab === 'moderasi' && !enabledFeatures.includes('moderation') && !enabledFeatures.includes('banned_words') && (
+          <div className="bg-white rounded-xl border border-slate-200 p-8 text-center">
+            <p className="text-slate-500 text-sm">Belum ada fitur Moderasi</p>
+            <p className="text-slate-400 text-xs mt-1">Klik "+ Tambah Fitur" untuk menambahkan</p>
+          </div>
         )}
 
         {/* ===== ADD FEATURE BUTTON ===== */}
