@@ -1,5 +1,6 @@
 import mongoose from 'mongoose'
 
+// Hardcoded fallback - tidak perlu env variable
 const MONGODB_URI = process.env.MONGODB_URI || 'mongodb+srv://botpanel:%40Admin001002@cluster0.hfenfpl.mongodb.net/telegrampanel?retryWrites=true&w=majority'
 
 let cached = (global as any).mongoose
@@ -10,7 +11,7 @@ if (!cached) {
 
 async function connectDB() {
   if (!MONGODB_URI) {
-    throw new Error('MONGODB_URI environment variable belum diset')
+    throw new Error('Koneksi database gagal')
   }
 
   if (cached.conn) {
