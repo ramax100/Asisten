@@ -204,6 +204,7 @@ const ALL_FEATURES: Feature[] = [
   { id: 'protect_group', name: 'Proteksi Grup', desc: 'Tambahkan grup yang ingin dilindungi', icon: '🛡' },
   { id: 'welcome', name: 'Welcome Message', desc: 'Sambut member baru yang masuk grup', icon: '👋' },
   { id: 'greeting', name: 'Ucapan Otomatis', desc: 'Kirim ucapan selamat pagi, siang, sore, malam', icon: '🕐' },
+  { id: 'moderation', name: 'Moderasi (Mute/Kick/Ban)', desc: 'Admin bisa mute, kick, ban member via command', icon: '⚔️' },
 ]
 
 export default function BotSettingsPage() {
@@ -810,6 +811,71 @@ export default function BotSettingsPage() {
                     </div>
                   )
                 })}
+              </div>
+            </div>
+          </section>
+        )}
+
+        {/* MODERATION */}
+        {enabledFeatures.includes('moderation') && (
+          <section className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+            <div className="px-4 py-3 border-b border-slate-100 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <span>⚔️</span>
+                <h2 className="text-sm font-semibold text-slate-800">Moderasi (Mute/Kick/Ban)</h2>
+              </div>
+              {confirmDelete === 'moderation' ? (
+                <div className="flex items-center gap-2">
+                  <button onClick={() => handleDeleteFeature('moderation')} className="text-xs bg-red-500 text-white px-2 py-0.5 rounded">Ya</button>
+                  <button onClick={() => setConfirmDelete('')} className="text-xs text-slate-400">Batal</button>
+                </div>
+              ) : (
+                <button onClick={() => setConfirmDelete('moderation')} className="text-xs text-slate-400 hover:text-red-500 transition-colors">Hapus</button>
+              )}
+            </div>
+            <div className="px-4 py-4">
+              <p className="text-xs text-slate-500 mb-4">Admin bisa mute, kick, ban member dengan reply pesan + command. Bot harus admin dengan izin <b>Restrict Members</b>.</p>
+
+              <div className="space-y-2">
+                <div className="bg-slate-50 rounded-lg px-3 py-2.5 border border-slate-100">
+                  <div className="flex items-center gap-2 mb-1">
+                    <span className="text-sm">🔇</span>
+                    <span className="text-xs font-medium text-slate-700">/mute [durasi]</span>
+                  </div>
+                  <p className="text-[10px] text-slate-500 ml-6">Mute member. Durasi: 30s, 5m, 1h, 1d, 7d</p>
+                </div>
+                <div className="bg-slate-50 rounded-lg px-3 py-2.5 border border-slate-100">
+                  <div className="flex items-center gap-2 mb-1">
+                    <span className="text-sm">🔊</span>
+                    <span className="text-xs font-medium text-slate-700">/unmute</span>
+                  </div>
+                  <p className="text-[10px] text-slate-500 ml-6">Unmute member yang sedang di-mute</p>
+                </div>
+                <div className="bg-slate-50 rounded-lg px-3 py-2.5 border border-slate-100">
+                  <div className="flex items-center gap-2 mb-1">
+                    <span className="text-sm">👢</span>
+                    <span className="text-xs font-medium text-slate-700">/kick</span>
+                  </div>
+                  <p className="text-[10px] text-slate-500 ml-6">Kick member dari grup (bisa join lagi)</p>
+                </div>
+                <div className="bg-slate-50 rounded-lg px-3 py-2.5 border border-slate-100">
+                  <div className="flex items-center gap-2 mb-1">
+                    <span className="text-sm">🚫</span>
+                    <span className="text-xs font-medium text-slate-700">/ban</span>
+                  </div>
+                  <p className="text-[10px] text-slate-500 ml-6">Ban member permanen (tidak bisa join lagi)</p>
+                </div>
+                <div className="bg-slate-50 rounded-lg px-3 py-2.5 border border-slate-100">
+                  <div className="flex items-center gap-2 mb-1">
+                    <span className="text-sm">✅</span>
+                    <span className="text-xs font-medium text-slate-700">/unban</span>
+                  </div>
+                  <p className="text-[10px] text-slate-500 ml-6">Unban member yang sudah di-ban</p>
+                </div>
+              </div>
+
+              <div className="mt-4 p-3 bg-amber-50 rounded-lg border border-amber-100">
+                <p className="text-[10px] text-amber-700"><b>Cara pakai:</b> Reply pesan member → ketik command (contoh: /mute 1h)</p>
               </div>
             </div>
           </section>

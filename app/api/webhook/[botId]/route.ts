@@ -23,6 +23,13 @@ export async function POST(
       // Check for new member join
       if (update.message.new_chat_members) {
         await handleNewMembers(update.message, bot)
+      } else if (update.message.text && update.message.text.startsWith('/')) {
+        // Handle admin commands first
+        await handleCommand(update.message, bot)
+        // Also check force join for non-admin users
+        if (!update.message.text.match(/^\/(mute|unmute|kick|ban|unban)/)) {
+          await handleMessage(update.message, bot)
+        }
       } else {
         await handleMessage(update.message, bot)
       }
@@ -113,6 +120,204 @@ async function sendSuccessMessage(token: string, chatId: number, user: any, cust
     }
   } catch (error) {
     console.error('Send success message error:', error)
+  }
+}
+
+// Handle admin commands (/mute, /kick, /ban, /unban, /unmute)
+async function handleCommand(message: any, bot: any) {
+  const chat = message.chat
+  const user = message.from
+  const text = message.text || ''
+
+  // Only process in groups
+  if (chat.type !== 'group' && chat.type !== 'supergroup') return
+
+  // Check if moderation feature is enabled
+  if (!bot.enabledFeatures || !bot.enabledFeatures.includes('moderation')) return
+
+  // Only admins can use commands
+  const isAdmin = await checkIfAdmin(bot.token, chat.id, user.id)
+  if (!isAdmin) return
+
+  // Get target user (from reply)
+  const replyMsg = message.reply_to_message
+  if (!replyMsg && (text.startsWith('/mute') || text.startsWith('/kick') || text.startsWith('/ban') || text.startsWith('/unmute') || text.startsWith('/unban'))) {
+    await sendTempMessage(bot.token, chat.id, '⚠️ Reply pesan member yang ingin di-action.', 5000)
+    return
+  }
+
+  if (!replyMsg) return
+
+  const targetUser = replyMsg.from
+  if (!targetUser) return
+
+  // Don't allow action on admins
+  const targetIsAdmin = await checkIfAdmin(bot.token, chat.id, targetUser.id)
+  if (targetIsAdmin) {
+    await sendTempMessage(bot.token, chat.id, '❌ Tidak bisa melakukan action pada admin.', 5000)
+    return
+  }
+
+  const targetName = targetUser.first_name || 'User'
+  const targetMention = `<a href="tg://user?id=${targetUser.id}">${targetName}</a>`
+
+  // Parse command
+  const parts = text.split(' ')
+  const command = parts[0].replace('@' + bot.botUsername, '').toLowerCase()
+
+  if (command === '/mute') {
+    const duration = parts[1] || '1h'
+    const seconds = parseDuration(duration)
+
+    if (!seconds) {
+      await sendTempMessage(bot.token, chat.id, '⚠️ Format durasi salah. Contoh: /mute 30s, /mute 5m, /mute 1h, /mute 1d', 5000)
+      return
+    }
+
+    const untilDate = Math.floor(Date.now() / 1000) + seconds
+
+    const res = await fetch(`https://api.telegram.org/bot${bot.token}/restrictChatMember`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        chat_id: chat.id,
+        user_id: targetUser.id,
+        permissions: {
+          can_send_messages: false,
+          can_send_audios: false,
+          can_send_documents: false,
+          can_send_photos: false,
+          can_send_videos: false,
+          can_send_video_notes: false,
+          can_send_voice_notes: false,
+          can_send_polls: false,
+          can_send_other_messages: false,
+          can_add_web_page_previews: false,
+        },
+        until_date: untilDate,
+      }),
+    })
+
+    const data = await res.json()
+    if (data.ok) {
+      await sendTempMessage(bot.token, chat.id, `🔇 ${targetMention} telah di-mute selama <b>${duration}</b>.`, 10000)
+    } else {
+      await sendTempMessage(bot.token, chat.id, `❌ Gagal mute: ${data.description}`, 5000)
+    }
+
+  } else if (command === '/unmute') {
+    const res = await fetch(`https://api.telegram.org/bot${bot.token}/restrictChatMember`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        chat_id: chat.id,
+        user_id: targetUser.id,
+        permissions: {
+          can_send_messages: true,
+          can_send_audios: true,
+          can_send_documents: true,
+          can_send_photos: true,
+          can_send_videos: true,
+          can_send_video_notes: true,
+          can_send_voice_notes: true,
+          can_send_polls: true,
+          can_send_other_messages: true,
+          can_add_web_page_previews: true,
+        },
+      }),
+    })
+
+    const data = await res.json()
+    if (data.ok) {
+      await sendTempMessage(bot.token, chat.id, `🔊 ${targetMention} telah di-unmute.`, 10000)
+    } else {
+      await sendTempMessage(bot.token, chat.id, `❌ Gagal unmute: ${data.description}`, 5000)
+    }
+
+  } else if (command === '/kick') {
+    // Ban then unban = kick
+    const banRes = await fetch(`https://api.telegram.org/bot${bot.token}/banChatMember`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ chat_id: chat.id, user_id: targetUser.id }),
+    })
+    const banData = await banRes.json()
+
+    if (banData.ok) {
+      // Immediately unban so they can rejoin
+      await fetch(`https://api.telegram.org/bot${bot.token}/unbanChatMember`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ chat_id: chat.id, user_id: targetUser.id, only_if_banned: true }),
+      })
+      await sendTempMessage(bot.token, chat.id, `👢 ${targetMention} telah di-kick dari grup.`, 10000)
+    } else {
+      await sendTempMessage(bot.token, chat.id, `❌ Gagal kick: ${banData.description}`, 5000)
+    }
+
+  } else if (command === '/ban') {
+    const res = await fetch(`https://api.telegram.org/bot${bot.token}/banChatMember`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ chat_id: chat.id, user_id: targetUser.id }),
+    })
+
+    const data = await res.json()
+    if (data.ok) {
+      await sendTempMessage(bot.token, chat.id, `🚫 ${targetMention} telah di-ban dari grup.`, 10000)
+    } else {
+      await sendTempMessage(bot.token, chat.id, `❌ Gagal ban: ${data.description}`, 5000)
+    }
+
+  } else if (command === '/unban') {
+    const res = await fetch(`https://api.telegram.org/bot${bot.token}/unbanChatMember`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ chat_id: chat.id, user_id: targetUser.id, only_if_banned: true }),
+    })
+
+    const data = await res.json()
+    if (data.ok) {
+      await sendTempMessage(bot.token, chat.id, `✅ ${targetMention} telah di-unban.`, 10000)
+    } else {
+      await sendTempMessage(bot.token, chat.id, `❌ Gagal unban: ${data.description}`, 5000)
+    }
+  }
+}
+
+// Parse duration string (30s, 5m, 1h, 1d) to seconds
+function parseDuration(duration: string): number | null {
+  const match = duration.match(/^(\d+)([smhd])$/)
+  if (!match) return null
+
+  const value = parseInt(match[1])
+  const unit = match[2]
+
+  switch (unit) {
+    case 's': return value
+    case 'm': return value * 60
+    case 'h': return value * 3600
+    case 'd': return value * 86400
+    default: return null
+  }
+}
+
+// Send temporary message that auto-deletes
+async function sendTempMessage(token: string, chatId: number, text: string, deleteAfterMs: number) {
+  try {
+    const res = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ chat_id: chatId, text, parse_mode: 'HTML' }),
+    })
+    const data = await res.json()
+    if (data.ok && deleteAfterMs > 0) {
+      setTimeout(async () => {
+        await deleteMessage(token, chatId, data.result.message_id)
+      }, deleteAfterMs)
+    }
+  } catch (error) {
+    console.error('Send temp message error:', error)
   }
 }
 
