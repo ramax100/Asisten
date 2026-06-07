@@ -415,7 +415,7 @@ async function handleMessage(message: any, bot: any) {
 
         const customMsg = bot.antiSpamMessage || `🚫 ${userMention} di-mute ${muteDuration} karena spam (>${limit} pesan dalam ${bot.antiSpamInterval || 10} detik).`
         const finalMsg = customMsg.replace(/{mention}/g, userMention).replace(/{name}/g, userName).replace(/{duration}/g, muteDuration).replace(/{limit}/g, String(limit))
-        await sendAutoDeleteMsg(bot.token, chat.id, finalMsg, 10000)
+          await sendAutoDeleteMsg(bot.token, chat.id, finalMsg, 10000)
           return
         }
       }
