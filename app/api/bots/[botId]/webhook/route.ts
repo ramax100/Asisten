@@ -1,20 +1,19 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getIronSession } from 'iron-session'
-import { cookies } from 'next/headers'
-import { sessionOptions, SessionData } from '@/lib/session'
 import connectDB from '@/lib/mongodb'
 import Bot from '@/lib/models/Bot'
 
 export const dynamic = 'force-dynamic'
+
+function isAuthenticated(request: NextRequest): boolean {
+  return request.cookies.get('auth-token')?.value === 'admin-authenticated'
+}
 
 // POST - Setup webhook for a bot
 export async function POST(
   request: NextRequest,
   { params }: { params: { botId: string } }
 ) {
-  const session = await getIronSession<SessionData>(await cookies(), sessionOptions)
-
-  if (!session.isLoggedIn) {
+  if (!isAuthenticated(request)) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
@@ -29,7 +28,7 @@ export async function POST(
     const baseUrl = process.env.NEXT_PUBLIC_BASE_URL
     if (!baseUrl) {
       return NextResponse.json(
-        { error: 'NEXT_PUBLIC_BASE_URL belum dikonfigurasi' },
+        { error: 'NEXT_PUBLIC_BASE_URL belum dikonfigurasi di Vercel Environment Variables' },
         { status: 500 }
       )
     }
@@ -60,8 +59,8 @@ export async function POST(
     await bot.save()
 
     return NextResponse.json({ success: true, webhookUrl })
-  } catch (error) {
-    console.error('Setup webhook error:', error)
+  } catch (error: any) {
+    console.error('Setup webhook error:', error?.message)
     return NextResponse.json({ error: 'Terjadi kesalahan server' }, { status: 500 })
   }
 }
@@ -71,9 +70,7 @@ export async function DELETE(
   request: NextRequest,
   { params }: { params: { botId: string } }
 ) {
-  const session = await getIronSession<SessionData>(await cookies(), sessionOptions)
-
-  if (!session.isLoggedIn) {
+  if (!isAuthenticated(request)) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
@@ -92,8 +89,8 @@ export async function DELETE(
     await bot.save()
 
     return NextResponse.json({ success: true })
-  } catch (error) {
-    console.error('Delete webhook error:', error)
+  } catch (error: any) {
+    console.error('Delete webhook error:', error?.message)
     return NextResponse.json({ error: 'Terjadi kesalahan server' }, { status: 500 })
   }
 }

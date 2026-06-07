@@ -1,7 +1,4 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getIronSession } from 'iron-session'
-import { cookies } from 'next/headers'
-import { sessionOptions, SessionData } from '@/lib/session'
 
 // Admin credentials
 const ADMIN_USERNAME = process.env.ADMIN_USERNAME || 'admin'
@@ -23,19 +20,24 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Username atau password salah' }, { status: 401 })
     }
 
-    // Create session
-    const cookieStore = await cookies()
-    const session = await getIronSession<SessionData>(cookieStore, sessionOptions)
-    session.isLoggedIn = true
-    session.username = username
-    await session.save()
-
-    return NextResponse.json({
+    // Create response with session cookie
+    const response = NextResponse.json({
       success: true,
       message: 'Login berhasil',
     })
+
+    // Set simple auth cookie
+    response.cookies.set('auth-token', 'admin-authenticated', {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      maxAge: 60 * 60 * 24 * 7, // 7 days
+      path: '/',
+    })
+
+    return response
   } catch (error: any) {
     console.error('Login error:', error?.message || error)
-    return NextResponse.json({ error: 'Terjadi kesalahan server' }, { status: 500 })
+    return NextResponse.json({ error: 'Terjadi kesalahan server: ' + (error?.message || 'unknown') }, { status: 500 })
   }
 }

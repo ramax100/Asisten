@@ -1,20 +1,19 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getIronSession } from 'iron-session'
-import { cookies } from 'next/headers'
-import { sessionOptions, SessionData } from '@/lib/session'
 import connectDB from '@/lib/mongodb'
 import Bot from '@/lib/models/Bot'
 
 export const dynamic = 'force-dynamic'
+
+function isAuthenticated(request: NextRequest): boolean {
+  return request.cookies.get('auth-token')?.value === 'admin-authenticated'
+}
 
 // POST - Add channel to force join list
 export async function POST(
   request: NextRequest,
   { params }: { params: { botId: string } }
 ) {
-  const session = await getIronSession<SessionData>(await cookies(), sessionOptions)
-
-  if (!session.isLoggedIn) {
+  if (!isAuthenticated(request)) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
@@ -66,8 +65,8 @@ export async function POST(
     await bot.save()
 
     return NextResponse.json({ success: true, channel: bot.channels[bot.channels.length - 1] })
-  } catch (error) {
-    console.error('Add channel error:', error)
+  } catch (error: any) {
+    console.error('Add channel error:', error?.message)
     return NextResponse.json({ error: 'Terjadi kesalahan server' }, { status: 500 })
   }
 }
@@ -77,9 +76,7 @@ export async function DELETE(
   request: NextRequest,
   { params }: { params: { botId: string } }
 ) {
-  const session = await getIronSession<SessionData>(await cookies(), sessionOptions)
-
-  if (!session.isLoggedIn) {
+  if (!isAuthenticated(request)) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
@@ -97,8 +94,8 @@ export async function DELETE(
     await bot.save()
 
     return NextResponse.json({ success: true })
-  } catch (error) {
-    console.error('Remove channel error:', error)
+  } catch (error: any) {
+    console.error('Remove channel error:', error?.message)
     return NextResponse.json({ error: 'Terjadi kesalahan server' }, { status: 500 })
   }
 }

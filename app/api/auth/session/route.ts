@@ -1,24 +1,16 @@
-import { NextResponse } from 'next/server'
-import { getIronSession } from 'iron-session'
-import { cookies } from 'next/headers'
-import { sessionOptions, SessionData } from '@/lib/session'
+import { NextRequest, NextResponse } from 'next/server'
 
 export const dynamic = 'force-dynamic'
 
-export async function GET() {
-  try {
-    const cookieStore = await cookies()
-    const session = await getIronSession<SessionData>(cookieStore, sessionOptions)
+export async function GET(request: NextRequest) {
+  const authToken = request.cookies.get('auth-token')?.value
 
-    if (!session.isLoggedIn) {
-      return NextResponse.json({ isLoggedIn: false }, { status: 401 })
-    }
-
-    return NextResponse.json({
-      isLoggedIn: true,
-      username: session.username,
-    })
-  } catch (error) {
+  if (authToken !== 'admin-authenticated') {
     return NextResponse.json({ isLoggedIn: false }, { status: 401 })
   }
+
+  return NextResponse.json({
+    isLoggedIn: true,
+    username: 'admin',
+  })
 }

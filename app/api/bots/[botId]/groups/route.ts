@@ -1,20 +1,19 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getIronSession } from 'iron-session'
-import { cookies } from 'next/headers'
-import { sessionOptions, SessionData } from '@/lib/session'
 import connectDB from '@/lib/mongodb'
 import Bot from '@/lib/models/Bot'
 
 export const dynamic = 'force-dynamic'
+
+function isAuthenticated(request: NextRequest): boolean {
+  return request.cookies.get('auth-token')?.value === 'admin-authenticated'
+}
 
 // POST - Add group manually
 export async function POST(
   request: NextRequest,
   { params }: { params: { botId: string } }
 ) {
-  const session = await getIronSession<SessionData>(await cookies(), sessionOptions)
-
-  if (!session.isLoggedIn) {
+  if (!isAuthenticated(request)) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
@@ -57,19 +56,6 @@ export async function POST(
       return NextResponse.json({ error: 'Grup sudah ditambahkan' }, { status: 400 })
     }
 
-    // Check if bot is admin in the group
-    const memberRes = await fetch(
-      `https://api.telegram.org/bot${bot.token}/getChatMember?chat_id=${chat.id}&user_id=${bot.botId}`
-    )
-    const memberData = await memberRes.json()
-
-    if (!memberData.ok || memberData.result.status !== 'administrator') {
-      return NextResponse.json(
-        { error: 'Bot harus menjadi admin di grup ini. Tambahkan bot sebagai admin terlebih dahulu.' },
-        { status: 400 }
-      )
-    }
-
     // Add group
     bot.groups.push({
       groupId: String(chat.id),
@@ -79,8 +65,8 @@ export async function POST(
     await bot.save()
 
     return NextResponse.json({ success: true, group: bot.groups[bot.groups.length - 1] })
-  } catch (error) {
-    console.error('Add group error:', error)
+  } catch (error: any) {
+    console.error('Add group error:', error?.message)
     return NextResponse.json({ error: 'Terjadi kesalahan server' }, { status: 500 })
   }
 }
@@ -90,9 +76,7 @@ export async function DELETE(
   request: NextRequest,
   { params }: { params: { botId: string } }
 ) {
-  const session = await getIronSession<SessionData>(await cookies(), sessionOptions)
-
-  if (!session.isLoggedIn) {
+  if (!isAuthenticated(request)) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
@@ -110,8 +94,8 @@ export async function DELETE(
     await bot.save()
 
     return NextResponse.json({ success: true })
-  } catch (error) {
-    console.error('Remove group error:', error)
+  } catch (error: any) {
+    console.error('Remove group error:', error?.message)
     return NextResponse.json({ error: 'Terjadi kesalahan server' }, { status: 500 })
   }
 }

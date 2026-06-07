@@ -1,31 +1,33 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getIronSession } from 'iron-session'
-import { cookies } from 'next/headers'
-import { sessionOptions, SessionData } from '@/lib/session'
 import connectDB from '@/lib/mongodb'
 import Bot from '@/lib/models/Bot'
 
 export const dynamic = 'force-dynamic'
 
-// GET - List all bots
-export async function GET() {
-  const session = await getIronSession<SessionData>(await cookies(), sessionOptions)
+// Check auth helper
+function isAuthenticated(request: NextRequest): boolean {
+  return request.cookies.get('auth-token')?.value === 'admin-authenticated'
+}
 
-  if (!session.isLoggedIn) {
+// GET - List all bots
+export async function GET(request: NextRequest) {
+  if (!isAuthenticated(request)) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
-  await connectDB()
-  const bots = await Bot.find({}).select('-token')
-
-  return NextResponse.json({ bots })
+  try {
+    await connectDB()
+    const bots = await Bot.find({}).select('-token')
+    return NextResponse.json({ bots })
+  } catch (error: any) {
+    console.error('Get bots error:', error?.message)
+    return NextResponse.json({ bots: [] })
+  }
 }
 
 // POST - Add a new bot
 export async function POST(request: NextRequest) {
-  const session = await getIronSession<SessionData>(await cookies(), sessionOptions)
-
-  if (!session.isLoggedIn) {
+  if (!isAuthenticated(request)) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
@@ -76,8 +78,8 @@ export async function POST(request: NextRequest) {
         groups: bot.groups,
       },
     })
-  } catch (error) {
-    console.error('Add bot error:', error)
-    return NextResponse.json({ error: 'Terjadi kesalahan server' }, { status: 500 })
+  } catch (error: any) {
+    console.error('Add bot error:', error?.message)
+    return NextResponse.json({ error: 'Terjadi kesalahan: ' + (error?.message || 'unknown') }, { status: 500 })
   }
 }
