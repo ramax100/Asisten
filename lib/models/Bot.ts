@@ -16,6 +16,9 @@ export interface IBot extends Document {
   }[]
   isActive: boolean
   webhookUrl: string
+  forceJoinEnabled: boolean
+  forceJoinMessage: string
+  successMessage: string
   createdAt: Date
   updatedAt: Date
 }
@@ -41,6 +44,9 @@ const BotSchema = new Schema<IBot>(
     ],
     isActive: { type: Boolean, default: true },
     webhookUrl: { type: String, default: '' },
+    forceJoinEnabled: { type: Boolean, default: true },
+    forceJoinMessage: { type: String, default: '' },
+    successMessage: { type: String, default: '' },
   },
   { timestamps: true }
 )

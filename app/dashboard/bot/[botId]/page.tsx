@@ -22,7 +22,9 @@ interface BotDetail {
   groups: Group[]
   isActive: boolean
   webhookUrl: string
-  features: string[]
+  forceJoinEnabled: boolean
+  forceJoinMessage: string
+  successMessage: string
 }
 
 const AVAILABLE_FEATURES = [
@@ -50,18 +52,33 @@ export default function BotSettingsPage() {
   const [channelError, setChannelError] = useState('')
   const [groupError, setGroupError] = useState('')
 
+  // Edit text states
+  const [editingText, setEditingText] = useState(false)
+  const [editingSuccessText, setEditingSuccessText] = useState(false)
+  const [forceJoinMessage, setForceJoinMessage] = useState('')
+  const [successMessage, setSuccessMessage] = useState('')
+  const [savingText, setSavingText] = useState(false)
+  const [savingSuccessText, setSavingSuccessText] = useState(false)
+
+  // Feature toggle states
+  const [togglingFeature, setTogglingFeature] = useState('')
+
+  // Confirm delete states
+  const [confirmDelete, setConfirmDelete] = useState('')
+
   useEffect(() => {
     fetchBot()
   }, [botId])
 
   useEffect(() => {
     if (bot) {
-      // Auto-show features that already have data
       const features: string[] = []
       if (bot.webhookUrl) features.push('webhook')
-      if (bot.channels.length > 0) features.push('force_join')
+      if (bot.channels.length > 0 || bot.forceJoinEnabled !== undefined) features.push('force_join')
       if (bot.groups.length > 0) features.push('protect_group')
       setActiveFeatures(features)
+      setForceJoinMessage(bot.forceJoinMessage || '')
+      setSuccessMessage(bot.successMessage || '')
     }
   }, [bot])
 
@@ -88,8 +105,79 @@ export default function BotSettingsPage() {
     setShowFeatureMenu(false)
   }
 
-  const removeFeature = (featureId: string) => {
-    setActiveFeatures(activeFeatures.filter(f => f !== featureId))
+  // Toggle fitur on/off
+  const handleToggleFeature = async (featureId: string, enabled: boolean) => {
+    setTogglingFeature(featureId)
+    try {
+      const res = await fetch(`/api/bots/${botId}/features`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ feature: featureId, enabled }),
+      })
+      if (res.ok) fetchBot()
+    } catch (err) {
+      console.error(err)
+    } finally {
+      setTogglingFeature('')
+    }
+  }
+
+  // Hapus fitur dan datanya
+  const handleDeleteFeature = async (featureId: string) => {
+    try {
+      const res = await fetch(`/api/bots/${botId}/features`, {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ feature: featureId }),
+      })
+      if (res.ok) {
+        setActiveFeatures(activeFeatures.filter(f => f !== featureId))
+        setConfirmDelete('')
+        fetchBot()
+      }
+    } catch (err) {
+      console.error(err)
+    }
+  }
+
+  // Save custom warning message
+  const handleSaveMessage = async () => {
+    setSavingText(true)
+    try {
+      const res = await fetch(`/api/bots/${botId}/features`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ feature: 'force_join_message', message: forceJoinMessage }),
+      })
+      if (res.ok) {
+        setEditingText(false)
+        fetchBot()
+      }
+    } catch (err) {
+      console.error(err)
+    } finally {
+      setSavingText(false)
+    }
+  }
+
+  // Save custom success message
+  const handleSaveSuccessMessage = async () => {
+    setSavingSuccessText(true)
+    try {
+      const res = await fetch(`/api/bots/${botId}/features`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ feature: 'success_message', message: successMessage }),
+      })
+      if (res.ok) {
+        setEditingSuccessText(false)
+        fetchBot()
+      }
+    } catch (err) {
+      console.error(err)
+    } finally {
+      setSavingSuccessText(false)
+    }
   }
 
   // === HANDLERS ===
@@ -194,16 +282,24 @@ export default function BotSettingsPage() {
 
       <main className="max-w-3xl mx-auto px-4 py-6 space-y-4">
 
-        {/* Active Features */}
+        {/* WEBHOOK */}
         {activeFeatures.includes('webhook') && (
           <section className="bg-white rounded-lg border border-gray-200 p-4">
             <div className="flex items-center justify-between mb-2">
               <h2 className="text-sm font-semibold text-gray-800">Webhook</h2>
-              <button onClick={() => removeFeature('webhook')} className="text-xs text-gray-400 hover:text-red-500">Tutup</button>
+              <div className="flex items-center gap-2">
+                {confirmDelete === 'webhook' ? (
+                  <div className="flex items-center gap-1">
+                    <span className="text-xs text-red-500">Yakin hapus?</span>
+                    <button onClick={() => handleDeleteFeature('webhook')} className="text-xs text-red-600 font-medium">Ya</button>
+                    <button onClick={() => setConfirmDelete('')} className="text-xs text-gray-400">Batal</button>
+                  </div>
+                ) : (
+                  <button onClick={() => setConfirmDelete('webhook')} className="text-xs text-red-400 hover:text-red-600">Hapus</button>
+                )}
+              </div>
             </div>
-            <p className="text-xs text-gray-500 mb-3">
-              Aktifkan webhook agar bot berjalan 24 jam.
-            </p>
+            <p className="text-xs text-gray-500 mb-3">Aktifkan webhook agar bot berjalan 24 jam.</p>
             <div className="flex items-center gap-2">
               <button
                 onClick={handleSetupWebhook}
@@ -215,74 +311,176 @@ export default function BotSettingsPage() {
               {webhookStatus === 'success' && <span className="text-green-600 text-xs">Berhasil!</span>}
               {webhookStatus === 'error' && <span className="text-red-500 text-xs">Gagal</span>}
             </div>
-            {bot.webhookUrl && (
-              <p className="text-xs text-gray-400 mt-2 break-all">{bot.webhookUrl}</p>
-            )}
+            {bot.webhookUrl && <p className="text-xs text-gray-400 mt-2 break-all">{bot.webhookUrl}</p>}
           </section>
         )}
 
+        {/* FORCE JOIN CHANNEL */}
         {activeFeatures.includes('force_join') && (
-          <section className="bg-white rounded-lg border border-gray-200 p-4">
+          <section className={`bg-white rounded-lg border p-4 ${bot.forceJoinEnabled === false ? 'border-gray-200 opacity-60' : 'border-gray-200'}`}>
             <div className="flex items-center justify-between mb-2">
-              <h2 className="text-sm font-semibold text-gray-800">Force Join Channel</h2>
-              <button onClick={() => removeFeature('force_join')} className="text-xs text-gray-400 hover:text-red-500">Tutup</button>
-            </div>
-            <p className="text-xs text-gray-500 mb-3">
-              Member wajib join channel ini sebelum kirim pesan. Bot harus admin di channel.
-            </p>
-
-            <form onSubmit={handleAddChannel} className="flex gap-2 mb-3">
-              <input
-                type="text"
-                value={channelInput}
-                onChange={(e) => setChannelInput(e.target.value)}
-                placeholder="@usernamechannel"
-                className="flex-1 px-3 py-1.5 border border-gray-300 rounded text-sm focus:outline-none focus:border-blue-500"
-                required
-              />
-              <button
-                type="submit"
-                disabled={addingChannel}
-                className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-300 text-white text-xs font-medium rounded transition-colors"
-              >
-                {addingChannel ? '...' : 'Tambah'}
-              </button>
-            </form>
-
-            {channelError && <p className="text-red-500 text-xs mb-2">{channelError}</p>}
-
-            {bot.channels.length > 0 && (
-              <div className="space-y-1.5">
-                {bot.channels.map((channel) => (
-                  <div key={channel.channelId} className="flex items-center justify-between bg-gray-50 rounded px-3 py-2">
-                    <div>
-                      <p className="text-sm text-gray-700">{channel.channelTitle}</p>
-                      <p className="text-xs text-gray-400">
-                        {channel.channelUsername ? `@${channel.channelUsername}` : channel.channelId}
-                      </p>
-                    </div>
-                    <button
-                      onClick={() => handleRemoveChannel(channel.channelId)}
-                      className="text-xs text-red-500 hover:text-red-700"
-                    >
-                      Hapus
-                    </button>
+              <div className="flex items-center gap-2">
+                <h2 className="text-sm font-semibold text-gray-800">Force Join Channel</h2>
+                {bot.forceJoinEnabled === false && (
+                  <span className="text-xs bg-yellow-50 text-yellow-600 px-1.5 py-0.5 rounded">Nonaktif</span>
+                )}
+              </div>
+              <div className="flex items-center gap-2">
+                {/* Toggle On/Off */}
+                <button
+                  onClick={() => handleToggleFeature('force_join', bot.forceJoinEnabled === false)}
+                  disabled={togglingFeature === 'force_join'}
+                  className={`text-xs px-2 py-0.5 rounded transition-colors ${
+                    bot.forceJoinEnabled === false
+                      ? 'bg-green-50 text-green-600 hover:bg-green-100'
+                      : 'bg-yellow-50 text-yellow-600 hover:bg-yellow-100'
+                  }`}
+                >
+                  {bot.forceJoinEnabled === false ? 'Aktifkan' : 'Matikan'}
+                </button>
+                {/* Edit Text */}
+                <button onClick={() => { setEditingText(!editingText); setEditingSuccessText(false) }} className="text-xs text-blue-500 hover:text-blue-700">
+                  Edit Teks
+                </button>
+                {/* Edit Success Text */}
+                <button onClick={() => { setEditingSuccessText(!editingSuccessText); setEditingText(false) }} className="text-xs text-green-500 hover:text-green-700">
+                  Pesan Sukses
+                </button>
+                {/* Delete */}
+                {confirmDelete === 'force_join' ? (
+                  <div className="flex items-center gap-1">
+                    <span className="text-xs text-red-500">Yakin?</span>
+                    <button onClick={() => handleDeleteFeature('force_join')} className="text-xs text-red-600 font-medium">Ya</button>
+                    <button onClick={() => setConfirmDelete('')} className="text-xs text-gray-400">Batal</button>
                   </div>
-                ))}
+                ) : (
+                  <button onClick={() => setConfirmDelete('force_join')} className="text-xs text-red-400 hover:text-red-600">Hapus</button>
+                )}
+              </div>
+            </div>
+
+            <p className="text-xs text-gray-500 mb-3">Member wajib join channel sebelum kirim pesan di grup.</p>
+
+            {/* Edit Text Area */}
+            {editingText && (
+              <div className="mb-3 p-3 bg-gray-50 rounded-lg border border-gray-200">
+                <label className="block text-xs text-gray-600 mb-1 font-medium">Pesan Warning (HTML supported):</label>
+                <textarea
+                  value={forceJoinMessage}
+                  onChange={(e) => setForceJoinMessage(e.target.value)}
+                  placeholder="⚠️ {user}, kamu harus join channel berikut sebelum bisa kirim pesan:&#10;&#10;{channels}&#10;&#10;Silakan join, lalu coba lagi."
+                  rows={4}
+                  className="w-full px-3 py-2 border border-gray-300 rounded text-xs focus:outline-none focus:border-blue-500 resize-none"
+                />
+                <p className="text-xs text-gray-400 mt-1">Variabel: {'{mention}'} = tag mention, {'{name}'} = nama, {'{username}'} = username, {'{id}'} = user ID, {'{channels}'} = daftar channel</p>
+                <div className="flex gap-2 mt-2">
+                  <button
+                    onClick={handleSaveMessage}
+                    disabled={savingText}
+                    className="px-3 py-1 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-300 text-white text-xs rounded transition-colors"
+                  >
+                    {savingText ? 'Menyimpan...' : 'Simpan'}
+                  </button>
+                  <button
+                    onClick={() => setEditingText(false)}
+                    className="px-3 py-1 text-xs text-gray-500 border border-gray-300 rounded hover:bg-gray-50"
+                  >
+                    Batal
+                  </button>
+                </div>
               </div>
             )}
+
+            {/* Edit Success Message Area */}
+            {editingSuccessText && (
+              <div className="mb-3 p-3 bg-green-50 rounded-lg border border-green-200">
+                <label className="block text-xs text-gray-600 mb-1 font-medium">Pesan Sukses (setelah member join):</label>
+                <textarea
+                  value={successMessage}
+                  onChange={(e) => setSuccessMessage(e.target.value)}
+                  placeholder="✅ {user}, terima kasih sudah join! Sekarang kamu bisa kirim pesan di grup ini."
+                  rows={3}
+                  className="w-full px-3 py-2 border border-gray-300 rounded text-xs focus:outline-none focus:border-green-500 resize-none"
+                />
+                <p className="text-xs text-gray-400 mt-1">Variabel: {'{mention}'} = tag mention, {'{name}'} = nama, {'{username}'} = username, {'{id}'} = user ID</p>
+                <div className="flex gap-2 mt-2">
+                  <button
+                    onClick={handleSaveSuccessMessage}
+                    disabled={savingSuccessText}
+                    className="px-3 py-1 bg-green-600 hover:bg-green-700 disabled:bg-gray-300 text-white text-xs rounded transition-colors"
+                  >
+                    {savingSuccessText ? 'Menyimpan...' : 'Simpan'}
+                  </button>
+                  <button
+                    onClick={() => setEditingSuccessText(false)}
+                    className="px-3 py-1 text-xs text-gray-500 border border-gray-300 rounded hover:bg-gray-50"
+                  >
+                    Batal
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {bot.forceJoinEnabled !== false && (
+              <>
+                <form onSubmit={handleAddChannel} className="flex gap-2 mb-3">
+                  <input
+                    type="text"
+                    value={channelInput}
+                    onChange={(e) => setChannelInput(e.target.value)}
+                    placeholder="@usernamechannel"
+                    className="flex-1 px-3 py-1.5 border border-gray-300 rounded text-sm focus:outline-none focus:border-blue-500"
+                    required
+                  />
+                  <button
+                    type="submit"
+                    disabled={addingChannel}
+                    className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-300 text-white text-xs font-medium rounded transition-colors"
+                  >
+                    {addingChannel ? '...' : 'Tambah'}
+                  </button>
+                </form>
+
+                {channelError && <p className="text-red-500 text-xs mb-2">{channelError}</p>}
+
+                {bot.channels.length > 0 && (
+                  <div className="space-y-1.5">
+                    {bot.channels.map((channel) => (
+                      <div key={channel.channelId} className="flex items-center justify-between bg-gray-50 rounded px-3 py-2">
+                        <div>
+                          <p className="text-sm text-gray-700">{channel.channelTitle}</p>
+                          <p className="text-xs text-gray-400">
+                            {channel.channelUsername ? `@${channel.channelUsername}` : channel.channelId}
+                          </p>
+                        </div>
+                        <button onClick={() => handleRemoveChannel(channel.channelId)} className="text-xs text-red-500 hover:text-red-700">Hapus</button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </>
+            )}
           </section>
         )}
 
+        {/* PROTECT GROUP */}
         {activeFeatures.includes('protect_group') && (
           <section className="bg-white rounded-lg border border-gray-200 p-4">
             <div className="flex items-center justify-between mb-2">
               <h2 className="text-sm font-semibold text-gray-800">Proteksi Grup</h2>
-              <button onClick={() => removeFeature('protect_group')} className="text-xs text-gray-400 hover:text-red-500">Tutup</button>
+              <div className="flex items-center gap-2">
+                {confirmDelete === 'protect_group' ? (
+                  <div className="flex items-center gap-1">
+                    <span className="text-xs text-red-500">Yakin?</span>
+                    <button onClick={() => handleDeleteFeature('protect_group')} className="text-xs text-red-600 font-medium">Ya</button>
+                    <button onClick={() => setConfirmDelete('')} className="text-xs text-gray-400">Batal</button>
+                  </div>
+                ) : (
+                  <button onClick={() => setConfirmDelete('protect_group')} className="text-xs text-red-400 hover:text-red-600">Hapus</button>
+                )}
+              </div>
             </div>
-            <p className="text-xs text-gray-500 mb-1">
-              Bot harus admin di grup dengan izin hapus pesan.
-            </p>
+            <p className="text-xs text-gray-500 mb-1">Bot harus admin di grup dengan izin hapus pesan.</p>
             <p className="text-xs text-gray-400 mb-3">
               Dapatkan Group ID dari <a href="https://t.me/getidsbot" target="_blank" className="text-blue-500 hover:underline">@getidsbot</a>
             </p>
@@ -315,12 +513,7 @@ export default function BotSettingsPage() {
                       <p className="text-sm text-gray-700">{group.groupTitle}</p>
                       <p className="text-xs text-gray-400">{group.groupId}</p>
                     </div>
-                    <button
-                      onClick={() => handleRemoveGroup(group.groupId)}
-                      className="text-xs text-red-500 hover:text-red-700"
-                    >
-                      Hapus
-                    </button>
+                    <button onClick={() => handleRemoveGroup(group.groupId)} className="text-xs text-red-500 hover:text-red-700">Hapus</button>
                   </div>
                 ))}
               </div>
@@ -328,7 +521,7 @@ export default function BotSettingsPage() {
           </section>
         )}
 
-        {/* Empty state / Add Feature Button */}
+        {/* Empty state */}
         {activeFeatures.length === 0 && (
           <div className="bg-white rounded-lg border border-gray-200 p-8 text-center">
             <p className="text-gray-500 text-sm mb-1">Belum ada fitur aktif</p>

@@ -56,14 +56,56 @@ async function handleCallbackQuery(callbackQuery: any, bot: any) {
       // User has joined all channels - delete the warning message
       await deleteMessage(bot.token, message.chat.id, message.message_id)
       await answerCallbackQuery(bot.token, callbackQuery.id, '✅ Verifikasi berhasil! Kamu bisa kirim pesan sekarang.')
+
+      // Send success message
+      await sendSuccessMessage(bot.token, message.chat.id, user, bot.successMessage)
     } else {
-      const channelNames = notJoined.map((c) => c.channelTitle).join(', ')
+      const channelNames = notJoined.map((c: any) => c.channelTitle).join(', ')
       await answerCallbackQuery(
         bot.token,
         callbackQuery.id,
         `❌ Kamu belum join: ${channelNames}`
       )
     }
+  }
+}
+
+// Send success message after user joined all channels
+async function sendSuccessMessage(token: string, chatId: number, user: any, customMessage: string) {
+  const userName = user.first_name || 'User'
+  const userMention = user.username ? `@${user.username}` : userName
+
+  let text = customMessage || `✅ <b>${userMention}</b>, terima kasih sudah join! Sekarang kamu bisa kirim pesan di grup ini.`
+
+  // Replace variables
+  const mention = `<a href="tg://user?id=${user.id}">${userName}</a>`
+  text = text.replace(/{mention}/g, mention)
+  text = text.replace(/{name}/g, userName)
+  text = text.replace(/{username}/g, user.username ? `@${user.username}` : userName)
+  text = text.replace(/{id}/g, String(user.id))
+  text = text.replace(/{user}/g, `<b>${userMention}</b>`)
+
+  try {
+    const res = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        chat_id: chatId,
+        text,
+        parse_mode: 'HTML',
+      }),
+    })
+
+    const data = await res.json()
+
+    // Auto-delete success message after 15 seconds
+    if (data.ok) {
+      setTimeout(async () => {
+        await deleteMessage(token, chatId, data.result.message_id)
+      }, 15000)
+    }
+  } catch (error) {
+    console.error('Send success message error:', error)
   }
 }
 
@@ -118,6 +160,11 @@ async function handleMessage(message: any, bot: any) {
     return
   }
 
+  // Skip if force join is disabled
+  if (bot.forceJoinEnabled === false) {
+    return
+  }
+
   // Skip if bot has no channels configured
   if (bot.channels.length === 0) {
     return
@@ -161,7 +208,7 @@ async function handleMessage(message: any, bot: any) {
     await deleteMessage(bot.token, chat.id, message.message_id)
 
     // Send warning with join buttons
-    await sendForceJoinWarning(bot.token, chat.id, user, notJoined)
+    await sendForceJoinWarning(bot.token, chat.id, user, notJoined, bot.forceJoinMessage)
   }
 }
 
@@ -204,7 +251,6 @@ async function getNotJoinedChannels(
           notJoined.push(channel)
         }
       } else {
-        // If we can't check, assume not joined
         notJoined.push(channel)
       }
     } catch {
@@ -233,12 +279,29 @@ async function sendForceJoinWarning(
   token: string,
   chatId: number,
   user: any,
-  notJoinedChannels: { channelId: string; channelUsername: string; channelTitle: string }[]
+  notJoinedChannels: { channelId: string; channelUsername: string; channelTitle: string }[],
+  customMessage: string
 ) {
   const userName = user.first_name || 'User'
   const userMention = user.username ? `@${user.username}` : userName
+  const channelList = notJoinedChannels.map((c) => `📢 ${c.channelTitle}`).join('\n')
 
-  const text = `⚠️ <b>${userMention}</b>, kamu harus join channel berikut sebelum bisa kirim pesan di grup ini:\n\n${notJoinedChannels.map((c) => `📢 ${c.channelTitle}`).join('\n')}\n\nSilakan join channel di bawah, lalu coba kirim pesan lagi.`
+  let text: string
+
+  if (customMessage) {
+    // Use custom message with variable replacement
+    const mention = `<a href="tg://user?id=${user.id}">${userName}</a>`
+    text = customMessage
+      .replace(/{mention}/g, mention)
+      .replace(/{name}/g, userName)
+      .replace(/{username}/g, user.username ? `@${user.username}` : userName)
+      .replace(/{id}/g, String(user.id))
+      .replace(/{user}/g, `<b>${userMention}</b>`)
+      .replace(/{channels}/g, channelList)
+  } else {
+    // Default message
+    text = `⚠️ <b>${userMention}</b>, kamu harus join channel berikut sebelum bisa kirim pesan di grup ini:\n\n${channelList}\n\nSilakan join channel di bawah, lalu coba kirim pesan lagi.`
+  }
 
   // Create inline keyboard with join buttons
   const buttons = notJoinedChannels.map((channel) => ([{
