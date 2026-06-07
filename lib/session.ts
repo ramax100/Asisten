@@ -5,13 +5,17 @@ export interface SessionData {
   username?: string
 }
 
+export const defaultSession: SessionData = {
+  isLoggedIn: false,
+}
+
 export const sessionOptions: SessionOptions = {
-  password: process.env.SESSION_SECRET || 'complex_password_at_least_32_characters_long_1234',
+  password: process.env.SESSION_SECRET || 'default_secret_key_harus_diganti_min_32_chars!!',
   cookieName: 'telegram-panel-session',
   cookieOptions: {
     secure: process.env.NODE_ENV === 'production',
     httpOnly: true,
-    sameSite: 'lax',
+    sameSite: 'lax' as const,
     maxAge: 60 * 60 * 24 * 7, // 7 days
   },
 }

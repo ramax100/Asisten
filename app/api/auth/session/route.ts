@@ -6,14 +6,19 @@ import { sessionOptions, SessionData } from '@/lib/session'
 export const dynamic = 'force-dynamic'
 
 export async function GET() {
-  const session = await getIronSession<SessionData>(await cookies(), sessionOptions)
+  try {
+    const cookieStore = await cookies()
+    const session = await getIronSession<SessionData>(cookieStore, sessionOptions)
 
-  if (!session.isLoggedIn) {
+    if (!session.isLoggedIn) {
+      return NextResponse.json({ isLoggedIn: false }, { status: 401 })
+    }
+
+    return NextResponse.json({
+      isLoggedIn: true,
+      username: session.username,
+    })
+  } catch (error) {
     return NextResponse.json({ isLoggedIn: false }, { status: 401 })
   }
-
-  return NextResponse.json({
-    isLoggedIn: true,
-    username: session.username,
-  })
 }
