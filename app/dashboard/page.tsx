@@ -83,55 +83,55 @@ export default function DashboardPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-900 flex items-center justify-center">
-        <div className="animate-spin h-8 w-8 border-4 border-blue-500 border-t-transparent rounded-full"></div>
+      <div className="min-h-screen flex items-center justify-center">
+        <p className="text-gray-400 text-sm">Memuat...</p>
       </div>
     )
   }
 
   return (
-    <div className="min-h-screen bg-gray-900">
+    <div className="min-h-screen bg-gray-50">
       {/* Header */}
-      <header className="bg-gray-800 border-b border-gray-700">
-        <div className="max-w-6xl mx-auto px-4 py-4 flex items-center justify-between">
-          <h1 className="text-xl font-bold text-white">Telegram Bot Panel</h1>
+      <header className="bg-white border-b border-gray-200">
+        <div className="max-w-4xl mx-auto px-4 py-3 flex items-center justify-between">
+          <h1 className="text-lg font-bold text-gray-800">Bot Panel</h1>
           <button
             onClick={handleLogout}
-            className="text-sm text-gray-400 hover:text-white transition-colors"
+            className="text-sm text-gray-500 hover:text-red-500 transition-colors"
           >
-            Logout
+            Keluar
           </button>
         </div>
       </header>
 
       {/* Content */}
-      <main className="max-w-6xl mx-auto px-4 py-8">
+      <main className="max-w-4xl mx-auto px-4 py-6">
         {/* Stats */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
-          <div className="bg-gray-800 rounded-xl p-5 border border-gray-700">
-            <p className="text-gray-400 text-sm">Total Bot</p>
-            <p className="text-2xl font-bold text-white mt-1">{bots.length}</p>
+        <div className="grid grid-cols-3 gap-3 mb-6">
+          <div className="bg-white rounded-lg p-4 border border-gray-200 text-center">
+            <p className="text-2xl font-bold text-gray-800">{bots.length}</p>
+            <p className="text-xs text-gray-500 mt-1">Total Bot</p>
           </div>
-          <div className="bg-gray-800 rounded-xl p-5 border border-gray-700">
-            <p className="text-gray-400 text-sm">Bot Aktif</p>
-            <p className="text-2xl font-bold text-green-400 mt-1">
+          <div className="bg-white rounded-lg p-4 border border-gray-200 text-center">
+            <p className="text-2xl font-bold text-green-600">
               {bots.filter((b) => b.isActive).length}
             </p>
+            <p className="text-xs text-gray-500 mt-1">Aktif</p>
           </div>
-          <div className="bg-gray-800 rounded-xl p-5 border border-gray-700">
-            <p className="text-gray-400 text-sm">Total Channel</p>
-            <p className="text-2xl font-bold text-blue-400 mt-1">
+          <div className="bg-white rounded-lg p-4 border border-gray-200 text-center">
+            <p className="text-2xl font-bold text-blue-600">
               {bots.reduce((acc, b) => acc + b.channels.length, 0)}
             </p>
+            <p className="text-xs text-gray-500 mt-1">Channel</p>
           </div>
         </div>
 
-        {/* Bot List Header */}
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-lg font-semibold text-white">Bot Saya</h2>
+        {/* Bot List */}
+        <div className="flex items-center justify-between mb-3">
+          <h2 className="text-sm font-semibold text-gray-700">Daftar Bot</h2>
           <button
             onClick={() => setShowAddBot(true)}
-            className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors"
+            className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-medium rounded transition-colors"
           >
             + Tambah Bot
           </button>
@@ -139,35 +139,35 @@ export default function DashboardPage() {
 
         {/* Add Bot Modal */}
         {showAddBot && (
-          <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 px-4">
-            <div className="bg-gray-800 rounded-xl p-6 w-full max-w-md border border-gray-700">
-              <h3 className="text-lg font-semibold text-white mb-4">Tambah Bot Baru</h3>
+          <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 px-4">
+            <div className="bg-white rounded-lg p-5 w-full max-w-sm border border-gray-200 shadow-lg">
+              <h3 className="text-sm font-semibold text-gray-800 mb-3">Tambah Bot Baru</h3>
               <form onSubmit={handleAddBot}>
                 <input
-                  type="password"
+                  type="text"
                   value={newToken}
                   onChange={(e) => setNewToken(e.target.value)}
-                  placeholder="Masukkan token bot dari BotFather"
-                  className="w-full px-4 py-3 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 mb-3"
+                  placeholder="Paste token dari BotFather"
+                  className="w-full px-3 py-2 border border-gray-300 rounded text-sm focus:outline-none focus:border-blue-500 mb-3"
                   required
                 />
                 {error && (
-                  <p className="text-red-400 text-sm mb-3">{error}</p>
+                  <p className="text-red-500 text-xs mb-3">{error}</p>
                 )}
-                <div className="flex gap-3">
+                <div className="flex gap-2">
                   <button
                     type="button"
                     onClick={() => { setShowAddBot(false); setError('') }}
-                    className="flex-1 py-2 px-4 bg-gray-700 hover:bg-gray-600 text-white rounded-lg transition-colors"
+                    className="flex-1 py-2 text-sm text-gray-600 border border-gray-300 rounded hover:bg-gray-50 transition-colors"
                   >
                     Batal
                   </button>
                   <button
                     type="submit"
                     disabled={addLoading}
-                    className="flex-1 py-2 px-4 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-600 text-white rounded-lg transition-colors"
+                    className="flex-1 py-2 text-sm text-white bg-blue-600 hover:bg-blue-700 disabled:bg-gray-300 rounded transition-colors"
                   >
-                    {addLoading ? 'Menambahkan...' : 'Tambah'}
+                    {addLoading ? 'Memproses...' : 'Tambah'}
                   </button>
                 </div>
               </form>
@@ -175,44 +175,33 @@ export default function DashboardPage() {
           </div>
         )}
 
-        {/* Bot Cards */}
+        {/* Bot List */}
         {bots.length === 0 ? (
-          <div className="bg-gray-800 rounded-xl p-12 border border-gray-700 text-center">
-            <div className="inline-flex items-center justify-center w-16 h-16 bg-gray-700 rounded-full mb-4">
-              <svg className="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-              </svg>
-            </div>
-            <p className="text-gray-400 mb-2">Belum ada bot</p>
-            <p className="text-gray-500 text-sm">Klik "Tambah Bot" untuk menambahkan bot pertama Anda</p>
+          <div className="bg-white rounded-lg p-8 border border-gray-200 text-center">
+            <p className="text-gray-500 text-sm">Belum ada bot.</p>
+            <p className="text-gray-400 text-xs mt-1">Klik "Tambah Bot" untuk memulai</p>
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="space-y-2">
             {bots.map((bot) => (
               <div
                 key={bot._id}
                 onClick={() => router.push(`/dashboard/bot/${bot.botId}`)}
-                className="bg-gray-800 rounded-xl p-5 border border-gray-700 hover:border-blue-500 cursor-pointer transition-colors"
+                className="bg-white rounded-lg p-4 border border-gray-200 hover:border-blue-400 cursor-pointer transition-colors"
               >
-                <div className="flex items-center justify-between mb-3">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 bg-blue-600 rounded-full flex items-center justify-center">
-                      <span className="text-white font-bold text-sm">
-                        {bot.botName.charAt(0).toUpperCase()}
-                      </span>
-                    </div>
-                    <div>
-                      <p className="text-white font-medium">{bot.botName}</p>
-                      <p className="text-gray-400 text-sm">@{bot.botUsername}</p>
-                    </div>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium text-gray-800">{bot.botName}</p>
+                    <p className="text-xs text-gray-500">@{bot.botUsername}</p>
                   </div>
-                  <span className={`px-2 py-1 rounded-full text-xs ${bot.isActive ? 'bg-green-900/50 text-green-400' : 'bg-red-900/50 text-red-400'}`}>
-                    {bot.isActive ? 'Aktif' : 'Nonaktif'}
-                  </span>
-                </div>
-                <div className="flex gap-4 text-sm text-gray-400">
-                  <span>{bot.channels.length} Channel</span>
-                  <span>{bot.groups.length} Grup</span>
+                  <div className="text-right">
+                    <span className={`inline-block px-2 py-0.5 rounded text-xs ${bot.isActive ? 'bg-green-50 text-green-600' : 'bg-red-50 text-red-500'}`}>
+                      {bot.isActive ? 'Aktif' : 'Nonaktif'}
+                    </span>
+                    <p className="text-xs text-gray-400 mt-1">
+                      {bot.channels.length} channel &middot; {bot.groups.length} grup
+                    </p>
+                  </div>
                 </div>
               </div>
             ))}
