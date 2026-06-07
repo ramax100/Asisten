@@ -3,12 +3,7 @@
   "crons": [
     {
       "path": "/api/cron/greeting",
-      "schedule": "0 */3 * * *"
+      "schedule": "0 0 * * *"
     }
-  ],
-  "functions": {
-    "app/api/webhook/[botId]/route.ts": {
-      "maxDuration": 10
-    }
-  }
+  ]
 }
