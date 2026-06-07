@@ -412,7 +412,6 @@ const ALL_FEATURES: Feature[] = [
   { id: 'greeting', name: 'Ucapan Otomatis', desc: 'Kirim ucapan selamat pagi, siang, sore, malam', icon: '🕐' },
   { id: 'moderation', name: 'Moderasi (Mute/Kick/Ban)', desc: 'Admin bisa mute, kick, ban member via command', icon: '⚔️' },
   { id: 'banned_words', name: 'Kata Terlarang', desc: 'Hapus pesan yang mengandung kata tertentu + mute', icon: '🤬' },
-  { id: 'anti_spam', name: 'Anti-Spam', desc: 'Mute member yang spam pesan berlebihan', icon: '🚫' },
   { id: 'anti_forward', name: 'Anti-Forward', desc: 'Larang forward pesan dari luar grup (peringatan 3x lalu mute)', icon: '↩️' },
 ]
 
