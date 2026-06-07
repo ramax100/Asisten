@@ -348,13 +348,21 @@ export default function BotSettingsPage() {
 
               {/* Action buttons */}
               <div className="flex flex-wrap gap-2 mb-4">
-                <button onClick={() => { setEditingWarning(!editingWarning); setEditingSuccess(false) }} className={`text-xs px-2.5 py-1 rounded-lg border transition-colors flex items-center gap-1 ${editingWarning ? 'border-indigo-300 bg-indigo-50 text-indigo-600' : 'border-slate-200 text-slate-500 hover:border-indigo-200 hover:text-indigo-500'}`}>
-                  Edit Pesan Warning
-                  {bot.forceJoinMessage && <span className="w-1.5 h-1.5 rounded-full bg-indigo-400"></span>}
+                <button onClick={() => { setEditingWarning(!editingWarning); setEditingSuccess(false) }} className={`text-xs px-2.5 py-1.5 rounded-lg border transition-colors flex items-center gap-1.5 ${editingWarning ? 'border-indigo-300 bg-indigo-50 text-indigo-600' : 'border-slate-200 text-slate-500 hover:border-indigo-200 hover:text-indigo-500'}`}>
+                  Pesan Warning
+                  {bot.forceJoinMessage ? (
+                    <span className="text-[9px] bg-emerald-100 text-emerald-600 px-1 py-0.5 rounded font-medium">Aktif</span>
+                  ) : (
+                    <span className="text-[9px] bg-slate-100 text-slate-400 px-1 py-0.5 rounded font-medium">Default</span>
+                  )}
                 </button>
-                <button onClick={() => { setEditingSuccess(!editingSuccess); setEditingWarning(false) }} className={`text-xs px-2.5 py-1 rounded-lg border transition-colors flex items-center gap-1 ${editingSuccess ? 'border-emerald-300 bg-emerald-50 text-emerald-600' : 'border-slate-200 text-slate-500 hover:border-emerald-200 hover:text-emerald-500'}`}>
-                  Edit Pesan Sukses
-                  {bot.successMessage && <span className="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>}
+                <button onClick={() => { setEditingSuccess(!editingSuccess); setEditingWarning(false) }} className={`text-xs px-2.5 py-1.5 rounded-lg border transition-colors flex items-center gap-1.5 ${editingSuccess ? 'border-emerald-300 bg-emerald-50 text-emerald-600' : 'border-slate-200 text-slate-500 hover:border-emerald-200 hover:text-emerald-500'}`}>
+                  Pesan Sukses
+                  {bot.successMessage ? (
+                    <span className="text-[9px] bg-emerald-100 text-emerald-600 px-1 py-0.5 rounded font-medium">Aktif</span>
+                  ) : (
+                    <span className="text-[9px] bg-slate-100 text-slate-400 px-1 py-0.5 rounded font-medium">Default</span>
+                  )}
                 </button>
               </div>
 
