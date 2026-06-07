@@ -5,6 +5,8 @@ import { sessionOptions, SessionData } from '@/lib/session'
 import connectDB from '@/lib/mongodb'
 import Bot from '@/lib/models/Bot'
 
+export const dynamic = 'force-dynamic'
+
 // GET - List all bots for current session owner
 export async function GET() {
   const session = await getIronSession<SessionData>(await cookies(), sessionOptions)
