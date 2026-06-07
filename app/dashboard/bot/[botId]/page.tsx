@@ -78,6 +78,92 @@ function GreetingEditor({ waktu, value, botId, onSaved }: { waktu: string; value
   )
 }
 
+// Diagnostic Section sub-component
+function DiagnosticSection({ botId, confirmDelete, setConfirmDelete, handleDeleteFeature }: { botId: string; confirmDelete: string; setConfirmDelete: (v: string) => void; handleDeleteFeature: (v: string) => void }) {
+  const [running, setRunning] = useState(false)
+  const [fixing, setFixing] = useState(false)
+  const [results, setResults] = useState<any>(null)
+
+  const runDiagnostic = async () => {
+    setRunning(true)
+    setResults(null)
+    try {
+      const res = await fetch(`/api/bots/${botId}/diagnostic`)
+      if (res.ok) {
+        const data = await res.json()
+        setResults(data)
+      }
+    } catch (err) { console.error(err) }
+    finally { setRunning(false) }
+  }
+
+  const autoFixWebhook = async () => {
+    setFixing(true)
+    try {
+      const res = await fetch(`/api/bots/${botId}/diagnostic`, { method: 'POST' })
+      const data = await res.json()
+      if (res.ok) {
+        alert('Webhook berhasil diperbarui!')
+        runDiagnostic()
+      } else {
+        alert(data.error || 'Gagal fix webhook')
+      }
+    } catch (err) { alert('Gagal menghubungi server') }
+    finally { setFixing(false) }
+  }
+
+  const statusIcon = (status: string) => {
+    if (status === 'ok') return '✅'
+    if (status === 'warning') return '⚠️'
+    return '❌'
+  }
+
+  return (
+    <section className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+      <div className="px-4 py-3 border-b border-slate-100 flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <span>🔧</span>
+          <h2 className="text-sm font-semibold text-slate-800">Diagnostik</h2>
+        </div>
+        {confirmDelete === 'diagnostic' ? (
+          <div className="flex items-center gap-2">
+            <button onClick={() => handleDeleteFeature('diagnostic')} className="text-xs bg-red-500 text-white px-2 py-0.5 rounded">Ya</button>
+            <button onClick={() => setConfirmDelete('')} className="text-xs text-slate-400">Batal</button>
+          </div>
+        ) : (
+          <button onClick={() => setConfirmDelete('diagnostic')} className="text-xs text-slate-400 hover:text-red-500 transition-colors">Hapus</button>
+        )}
+      </div>
+      <div className="px-4 py-4">
+        <p className="text-xs text-slate-500 mb-3">Cek status bot, webhook, akses channel & grup. Auto-fix jika ada masalah.</p>
+
+        <div className="flex gap-2 mb-4">
+          <button onClick={runDiagnostic} disabled={running} className="px-3.5 py-1.5 bg-indigo-600 hover:bg-indigo-700 disabled:bg-slate-300 text-white text-xs font-medium rounded-lg transition-colors">
+            {running ? 'Memeriksa...' : 'Jalankan Diagnostik'}
+          </button>
+          <button onClick={autoFixWebhook} disabled={fixing} className="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 disabled:bg-slate-300 text-white text-xs font-medium rounded-lg transition-colors">
+            {fixing ? 'Memperbaiki...' : 'Auto-Fix Webhook'}
+          </button>
+        </div>
+
+        {results && (
+          <div className="space-y-2">
+            {results.checks.map((check: any, i: number) => (
+              <div key={i} className="flex items-start gap-2 bg-slate-50 rounded-lg px-3 py-2.5 border border-slate-100">
+                <span className="text-sm mt-0.5">{statusIcon(check.status)}</span>
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs font-medium text-slate-700">{check.name}</p>
+                  <p className="text-[10px] text-slate-500 break-all">{check.detail}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </section>
+  )
+}
+
 interface Channel {
   channelId: string
   channelUsername: string
@@ -118,6 +204,7 @@ const ALL_FEATURES: Feature[] = [
   { id: 'protect_group', name: 'Proteksi Grup', desc: 'Tambahkan grup yang ingin dilindungi', icon: '🛡' },
   { id: 'welcome', name: 'Welcome Message', desc: 'Sambut member baru yang masuk grup', icon: '👋' },
   { id: 'greeting', name: 'Ucapan Otomatis', desc: 'Kirim ucapan selamat pagi, siang, sore, malam', icon: '🕐' },
+  { id: 'diagnostic', name: 'Diagnostik', desc: 'Cek status bot & auto-fix webhook', icon: '🔧' },
 ]
 
 export default function BotSettingsPage() {
@@ -727,6 +814,11 @@ export default function BotSettingsPage() {
               </div>
             </div>
           </section>
+        )}
+
+        {/* DIAGNOSTIK */}
+        {enabledFeatures.includes('diagnostic') && (
+          <DiagnosticSection botId={botId} confirmDelete={confirmDelete} setConfirmDelete={setConfirmDelete} handleDeleteFeature={handleDeleteFeature} />
         )}
 
         {/* ===== ADD FEATURE BUTTON ===== */}
