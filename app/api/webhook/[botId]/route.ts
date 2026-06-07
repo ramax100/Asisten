@@ -367,44 +367,53 @@ async function handleMessage(message: any, bot: any) {
 
   // === ANTI-SPAM CHECK ===
   if (features.includes('anti_spam')) {
-    const key = `${chat.id}_${user.id}_spam`
+    const key = `spam_${chat.id}_${user.id}`
     const now = Date.now()
-    const interval = (bot.antiSpamInterval || 10) * 1000 // convert to ms
+    const interval = (bot.antiSpamInterval || 10) * 1000
     const limit = bot.antiSpamLimit || 5
-    const spamCounter = await getCounter(key)
 
-    if (!spamCounter || (now - spamCounter.firstMsg) > interval) {
-      await setCounter(key, 1, now)
-    } else {
-      await setCounter(key, spamCounter.count + 1, spamCounter.firstMsg)
-    }
+    try {
+      const counter = await Counter.findOne({ key })
 
-    const currentCount = spamCounter ? (now - spamCounter.firstMsg > interval ? 1 : spamCounter.count + 1) : 1
+      if (!counter) {
+        await Counter.create({ key, count: 1, firstMsg: now })
+      } else if ((now - counter.firstMsg) > interval) {
+        counter.count = 1
+        counter.firstMsg = now
+        await counter.save()
+      } else {
+        counter.count += 1
+        await counter.save()
 
-    if (currentCount > limit) {
-      // Mute spammer
-      const muteDuration = bot.antiSpamMuteDuration || '5m'
-      const seconds = parseDurationSimple(muteDuration)
-      const untilDate = Math.floor(Date.now() / 1000) + seconds
+        if (counter.count > limit) {
+          const muteDuration = bot.antiSpamMuteDuration || '5m'
+          const seconds = parseDurationSimple(muteDuration)
+          const untilDate = Math.floor(Date.now() / 1000) + seconds
 
-      await deleteMessage(bot.token, chat.id, message.message_id)
+          await deleteMessage(bot.token, chat.id, message.message_id)
 
-      await fetch(`https://api.telegram.org/bot${bot.token}/restrictChatMember`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          chat_id: chat.id,
-          user_id: user.id,
-          permissions: { can_send_messages: false, can_send_audios: false, can_send_documents: false, can_send_photos: false, can_send_videos: false, can_send_video_notes: false, can_send_voice_notes: false, can_send_polls: false, can_send_other_messages: false, can_add_web_page_previews: false },
-          until_date: untilDate,
-        }),
-      })
+          await fetch(`https://api.telegram.org/bot${bot.token}/restrictChatMember`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              chat_id: chat.id,
+              user_id: user.id,
+              permissions: { can_send_messages: false, can_send_audios: false, can_send_documents: false, can_send_photos: false, can_send_videos: false, can_send_video_notes: false, can_send_voice_notes: false, can_send_polls: false, can_send_other_messages: false, can_add_web_page_previews: false },
+              until_date: untilDate,
+            }),
+          })
 
-      await resetCounter(key)
-      const customMsg = bot.antiSpamMessage || `🚫 ${userMention} di-mute ${muteDuration} karena spam (>${limit} pesan dalam ${bot.antiSpamInterval || 10} detik).`
-      const finalMsg = customMsg.replace(/{mention}/g, userMention).replace(/{name}/g, userName).replace(/{duration}/g, muteDuration).replace(/{limit}/g, String(limit))
-      await sendAutoDeleteMsg(bot.token, chat.id, finalMsg, 10000)
-      return
+          counter.count = 0
+          await counter.save()
+
+          const customMsg = bot.antiSpamMessage || `🚫 ${userMention} di-mute ${muteDuration} karena spam (>${limit} pesan dalam ${bot.antiSpamInterval || 10} detik).`
+          const finalMsg = customMsg.replace(/{mention}/g, userMention).replace(/{name}/g, userName).replace(/{duration}/g, muteDuration).replace(/{limit}/g, String(limit))
+          await sendAutoDeleteMsg(bot.token, chat.id, finalMsg, 10000)
+          return
+        }
+      }
+    } catch (err) {
+      console.error('Anti-spam error:', err)
     }
   }
 
