@@ -1,6 +1,6 @@
 import mongoose from 'mongoose'
 
-const MONGODB_URI = process.env.MONGODB_URI || ''
+const MONGODB_URI = process.env.MONGODB_URI || 'mongodb+srv://botpanel:%40Admin001002@cluster0.hfenfpl.mongodb.net/telegrampanel?retryWrites=true&w=majority'
 
 let cached = (global as any).mongoose
 
