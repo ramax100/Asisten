@@ -374,54 +374,48 @@ async function handleMessage(message: any, bot: any) {
   if (hasAntiSpam) {
     const key = `spam_${chat.id}_${user.id}`
     const now = Date.now()
-    const interval = (bot.antiSpamInterval || 10) * 1000
+    const intervalMs = (bot.antiSpamInterval || 10) * 1000
     const limit = bot.antiSpamLimit || 5
 
     try {
-      // Use findOneAndUpdate with upsert to avoid race conditions
+      // Atomic increment + get
       const counter = await Counter.findOneAndUpdate(
         { key },
-        { $setOnInsert: { key, count: 0, firstMsg: now } },
+        { $inc: { count: 1 }, $setOnInsert: { firstMsg: now } },
         { upsert: true, new: true }
       )
 
-      // Reset if interval passed
-      if ((now - counter.firstMsg) > interval) {
-        counter.count = 1
-        counter.firstMsg = now
-        await counter.save()
-      } else {
-        // Increment
-        const updated = await Counter.findOneAndUpdate(
+      // If interval expired, reset counter
+      if (counter.firstMsg && (now - counter.firstMsg) > intervalMs) {
+        await Counter.findOneAndUpdate(
           { key },
-          { $inc: { count: 1 } },
-          { new: true }
+          { count: 1, firstMsg: now }
         )
+      } else if (counter.count > limit) {
+        // SPAM DETECTED - mute user
+        const muteDuration = bot.antiSpamMuteDuration || '5m'
+        const seconds = parseDurationSimple(muteDuration)
+        const untilDate = Math.floor(Date.now() / 1000) + seconds
 
-        if (updated && updated.count > limit) {
-          const muteDuration = bot.antiSpamMuteDuration || '5m'
-          const seconds = parseDurationSimple(muteDuration)
-          const untilDate = Math.floor(Date.now() / 1000) + seconds
+        await deleteMessage(bot.token, chat.id, message.message_id)
 
-          await deleteMessage(bot.token, chat.id, message.message_id)
+        await fetch(`https://api.telegram.org/bot${bot.token}/restrictChatMember`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            chat_id: chat.id,
+            user_id: user.id,
+            permissions: { can_send_messages: false, can_send_audios: false, can_send_documents: false, can_send_photos: false, can_send_videos: false, can_send_video_notes: false, can_send_voice_notes: false, can_send_polls: false, can_send_other_messages: false, can_add_web_page_previews: false },
+            until_date: untilDate,
+          }),
+        })
 
-          await fetch(`https://api.telegram.org/bot${bot.token}/restrictChatMember`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              chat_id: chat.id,
-              user_id: user.id,
-              permissions: { can_send_messages: false, can_send_audios: false, can_send_documents: false, can_send_photos: false, can_send_videos: false, can_send_video_notes: false, can_send_voice_notes: false, can_send_polls: false, can_send_other_messages: false, can_add_web_page_previews: false },
-              until_date: untilDate,
-            }),
-          })
+        // Reset counter after mute
+        await Counter.findOneAndUpdate({ key }, { count: 0, firstMsg: now })
 
-          // Reset counter
-          await Counter.findOneAndUpdate({ key }, { count: 0, firstMsg: now })
-
-          const customMsg = bot.antiSpamMessage || `🚫 ${userMention} di-mute ${muteDuration} karena spam (>${limit} pesan dalam ${bot.antiSpamInterval || 10} detik).`
-          const finalMsg = customMsg.replace(/{mention}/g, userMention).replace(/{name}/g, userName).replace(/{duration}/g, muteDuration).replace(/{limit}/g, String(limit))
-          await sendAutoDeleteMsg(bot.token, chat.id, finalMsg, 10000)
+        const customMsg = bot.antiSpamMessage || `🚫 ${userMention} di-mute ${muteDuration} karena spam (>${limit} pesan dalam ${bot.antiSpamInterval || 10} detik).`
+        const finalMsg = customMsg.replace(/{mention}/g, userMention).replace(/{name}/g, userName).replace(/{duration}/g, muteDuration).replace(/{limit}/g, String(limit))
+        await sendAutoDeleteMsg(bot.token, chat.id, finalMsg, 10000)
           return
         }
       }
