@@ -150,12 +150,12 @@ export default function BotSettingsPage() {
     fetchBot()
   }
 
-  // Delete/reset messages
+  // Delete/reset messages (disable feature)
   const handleDeleteWarning = async () => {
     await fetch(`/api/bots/${botId}/features`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ feature: 'force_join_message', message: '' }),
+      body: JSON.stringify({ feature: 'force_join_message', message: '__disabled__' }),
     })
     setWarningText('')
     setEditingWarning(false)
@@ -166,7 +166,7 @@ export default function BotSettingsPage() {
     await fetch(`/api/bots/${botId}/features`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ feature: 'success_message', message: '' }),
+      body: JSON.stringify({ feature: 'success_message', message: '__disabled__' }),
     })
     setSuccessText('')
     setEditingSuccess(false)
@@ -350,7 +350,9 @@ export default function BotSettingsPage() {
               <div className="flex flex-wrap gap-2 mb-4">
                 <button onClick={() => { setEditingWarning(!editingWarning); setEditingSuccess(false) }} className={`text-xs px-2.5 py-1.5 rounded-lg border transition-colors flex items-center gap-1.5 ${editingWarning ? 'border-indigo-300 bg-indigo-50 text-indigo-600' : 'border-slate-200 text-slate-500 hover:border-indigo-200 hover:text-indigo-500'}`}>
                   Pesan Warning
-                  {bot.forceJoinMessage ? (
+                  {bot.forceJoinMessage === '__disabled__' ? (
+                    <span className="text-[9px] bg-red-100 text-red-500 px-1 py-0.5 rounded font-medium">Nonaktif</span>
+                  ) : bot.forceJoinMessage ? (
                     <span className="text-[9px] bg-emerald-100 text-emerald-600 px-1 py-0.5 rounded font-medium">Aktif</span>
                   ) : (
                     <span className="text-[9px] bg-slate-100 text-slate-400 px-1 py-0.5 rounded font-medium">Default</span>
@@ -358,7 +360,9 @@ export default function BotSettingsPage() {
                 </button>
                 <button onClick={() => { setEditingSuccess(!editingSuccess); setEditingWarning(false) }} className={`text-xs px-2.5 py-1.5 rounded-lg border transition-colors flex items-center gap-1.5 ${editingSuccess ? 'border-emerald-300 bg-emerald-50 text-emerald-600' : 'border-slate-200 text-slate-500 hover:border-emerald-200 hover:text-emerald-500'}`}>
                   Pesan Sukses
-                  {bot.successMessage ? (
+                  {bot.successMessage === '__disabled__' ? (
+                    <span className="text-[9px] bg-red-100 text-red-500 px-1 py-0.5 rounded font-medium">Nonaktif</span>
+                  ) : bot.successMessage ? (
                     <span className="text-[9px] bg-emerald-100 text-emerald-600 px-1 py-0.5 rounded font-medium">Aktif</span>
                   ) : (
                     <span className="text-[9px] bg-slate-100 text-slate-400 px-1 py-0.5 rounded font-medium">Default</span>

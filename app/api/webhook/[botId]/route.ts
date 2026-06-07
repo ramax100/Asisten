@@ -57,8 +57,10 @@ async function handleCallbackQuery(callbackQuery: any, bot: any) {
       await deleteMessage(bot.token, message.chat.id, message.message_id)
       await answerCallbackQuery(bot.token, callbackQuery.id, '✅ Verifikasi berhasil! Kamu bisa kirim pesan sekarang.')
 
-      // Send success message
-      await sendSuccessMessage(bot.token, message.chat.id, user, bot.successMessage)
+      // Send success message (skip if disabled)
+      if (bot.successMessage !== '__disabled__') {
+        await sendSuccessMessage(bot.token, message.chat.id, user, bot.successMessage)
+      }
     } else {
       const channelNames = notJoined.map((c: any) => c.channelTitle).join(', ')
       await answerCallbackQuery(
@@ -207,8 +209,10 @@ async function handleMessage(message: any, bot: any) {
     // Delete the user's message
     await deleteMessage(bot.token, chat.id, message.message_id)
 
-    // Send warning with join buttons
-    await sendForceJoinWarning(bot.token, chat.id, user, notJoined, bot.forceJoinMessage)
+    // Send warning with join buttons (skip if disabled)
+    if (bot.forceJoinMessage !== '__disabled__') {
+      await sendForceJoinWarning(bot.token, chat.id, user, notJoined, bot.forceJoinMessage)
+    }
   }
 }
 
