@@ -204,7 +204,6 @@ const ALL_FEATURES: Feature[] = [
   { id: 'protect_group', name: 'Proteksi Grup', desc: 'Tambahkan grup yang ingin dilindungi', icon: '🛡' },
   { id: 'welcome', name: 'Welcome Message', desc: 'Sambut member baru yang masuk grup', icon: '👋' },
   { id: 'greeting', name: 'Ucapan Otomatis', desc: 'Kirim ucapan selamat pagi, siang, sore, malam', icon: '🕐' },
-  { id: 'diagnostic', name: 'Diagnostik', desc: 'Cek status bot & auto-fix webhook', icon: '🔧' },
 ]
 
 export default function BotSettingsPage() {
@@ -814,11 +813,6 @@ export default function BotSettingsPage() {
               </div>
             </div>
           </section>
-        )}
-
-        {/* DIAGNOSTIK */}
-        {enabledFeatures.includes('diagnostic') && (
-          <DiagnosticSection botId={botId} confirmDelete={confirmDelete} setConfirmDelete={setConfirmDelete} handleDeleteFeature={handleDeleteFeature} />
         )}
 
         {/* ===== ADD FEATURE BUTTON ===== */}

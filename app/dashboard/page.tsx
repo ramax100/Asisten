@@ -48,6 +48,29 @@ export default function DashboardPage() {
 
   const handleLogout = async () => { await fetch('/api/auth/logout', { method: 'POST' }); router.push('/') }
 
+  // Fix All Bots
+  const [fixing, setFixing] = useState(false)
+  const [fixResult, setFixResult] = useState<any>(null)
+
+  const handleFixAll = async () => {
+    setFixing(true)
+    setFixResult(null)
+    try {
+      const res = await fetch('/api/bots/fix-all', { method: 'POST' })
+      const data = await res.json()
+      if (res.ok) {
+        setFixResult(data)
+        fetchBots()
+      } else {
+        setFixResult({ error: data.error })
+      }
+    } catch (err) {
+      setFixResult({ error: 'Gagal menghubungi server' })
+    } finally {
+      setFixing(false)
+    }
+  }
+
   if (loading) return <div className="min-h-screen flex items-center justify-center bg-slate-50"><p className="text-slate-400 text-sm">Memuat...</p></div>
 
   return (
@@ -73,6 +96,40 @@ export default function DashboardPage() {
             <p className="text-2xl font-bold text-indigo-600">{bots.reduce((a, b) => a + b.channels.length, 0)}</p>
             <p className="text-xs text-slate-500 mt-1">Channel</p>
           </div>
+        </div>
+
+        {/* Diagnostik - Fix All */}
+        <div className="bg-white rounded-xl p-4 border border-slate-200 mb-6">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <span className="text-lg">🔧</span>
+              <div>
+                <p className="text-sm font-semibold text-slate-800">Diagnostik</p>
+                <p className="text-[10px] text-slate-500">Perbaiki webhook semua bot sekaligus</p>
+              </div>
+            </div>
+            <button onClick={handleFixAll} disabled={fixing} className="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 disabled:bg-slate-300 text-white text-xs font-medium rounded-lg">
+              {fixing ? 'Memperbaiki...' : 'Fix Semua Bot'}
+            </button>
+          </div>
+          {fixResult && (
+            <div className="mt-3 p-3 bg-slate-50 rounded-lg border border-slate-100">
+              {fixResult.error ? (
+                <p className="text-xs text-red-500">{fixResult.error}</p>
+              ) : (
+                <div>
+                  <p className="text-xs text-slate-700 font-medium mb-1">Hasil: {fixResult.fixed}/{fixResult.total} bot berhasil di-fix</p>
+                  {fixResult.results?.map((r: any, i: number) => (
+                    <div key={i} className="flex items-center gap-1.5 text-[10px] text-slate-500">
+                      <span>{r.status === 'ok' ? '✅' : '❌'}</span>
+                      <span>@{r.username}</span>
+                      {r.status === 'error' && <span className="text-red-400">- {r.error}</span>}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
         </div>
 
         <div className="flex items-center justify-between mb-3">
