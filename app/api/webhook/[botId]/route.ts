@@ -293,9 +293,13 @@ async function handleMessage(message: any, bot: any) {
           })
 
           forwardWarnings[key] = 0
-          await sendAutoDeleteMsg(bot.token, chat.id, `🚫 ${userMention} di-mute ${muteDuration} karena forward pesan dari luar grup (${warningLimit}x peringatan).`, 10000)
+          const customMuteMsg = bot.antiForwardMuteMessage || `🚫 ${userMention} di-mute ${muteDuration} karena forward pesan dari luar grup (${warningLimit}x peringatan).`
+          const finalMuteMsg = customMuteMsg.replace(/{mention}/g, userMention).replace(/{name}/g, userName).replace(/{duration}/g, muteDuration).replace(/{limit}/g, String(warningLimit))
+          await sendAutoDeleteMsg(bot.token, chat.id, finalMuteMsg, 10000)
         } else {
-          await sendAutoDeleteMsg(bot.token, chat.id, `⚠️ ${userMention}, dilarang forward pesan dari luar grup! Peringatan ${warningCount}/${warningLimit}.`, 7000)
+          const customWarnMsg = bot.antiForwardWarningMessage || `⚠️ ${userMention}, dilarang forward pesan dari luar grup! Peringatan ${warningCount}/${warningLimit}.`
+          const finalWarnMsg = customWarnMsg.replace(/{mention}/g, userMention).replace(/{name}/g, userName).replace(/{count}/g, String(warningCount)).replace(/{limit}/g, String(warningLimit))
+          await sendAutoDeleteMsg(bot.token, chat.id, finalWarnMsg, 7000)
         }
         return
       }
@@ -314,8 +318,12 @@ async function handleMessage(message: any, bot: any) {
       const action = bot.bannedWordsAction || 'delete_warn'
 
       if (action === 'delete_warn') {
-        await sendAutoDeleteMsg(bot.token, chat.id, `⚠️ ${userMention}, pesanmu dihapus karena mengandung kata terlarang.`, 5000)
+        const customMsg = bot.bannedWordsMessage || `⚠️ ${userMention}, pesanmu dihapus karena mengandung kata terlarang.`
+        const finalMsg = customMsg.replace(/{mention}/g, userMention).replace(/{name}/g, userName).replace(/{word}/g, foundWord)
+        await sendAutoDeleteMsg(bot.token, chat.id, finalMsg, 5000)
       } else if (action === 'delete_mute') {
+        const customMsg = bot.bannedWordsMessage || `🔇 ${userMention} di-mute 5 menit karena menggunakan kata terlarang.`
+        const finalMsg = customMsg.replace(/{mention}/g, userMention).replace(/{name}/g, userName).replace(/{word}/g, foundWord)
         // Mute 5 minutes
         const untilDate = Math.floor(Date.now() / 1000) + 300
         await fetch(`https://api.telegram.org/bot${bot.token}/restrictChatMember`, {
@@ -328,7 +336,7 @@ async function handleMessage(message: any, bot: any) {
             until_date: untilDate,
           }),
         })
-        await sendAutoDeleteMsg(bot.token, chat.id, `🔇 ${userMention} di-mute 5 menit karena menggunakan kata terlarang.`, 7000)
+        await sendAutoDeleteMsg(bot.token, chat.id, finalMsg, 7000)
       } else {
         // delete_only - just delete
       }
@@ -369,7 +377,9 @@ async function handleMessage(message: any, bot: any) {
       })
 
       spamTracker[key] = { count: 0, firstMsg: now }
-      await sendAutoDeleteMsg(bot.token, chat.id, `🚫 ${userMention} di-mute ${muteDuration} karena spam (>${limit} pesan dalam ${bot.antiSpamInterval || 10} detik).`, 10000)
+      const customMsg = bot.antiSpamMessage || `🚫 ${userMention} di-mute ${muteDuration} karena spam (>${limit} pesan dalam ${bot.antiSpamInterval || 10} detik).`
+      const finalMsg = customMsg.replace(/{mention}/g, userMention).replace(/{name}/g, userName).replace(/{duration}/g, muteDuration).replace(/{limit}/g, String(limit))
+      await sendAutoDeleteMsg(bot.token, chat.id, finalMsg, 10000)
       return
     }
   }

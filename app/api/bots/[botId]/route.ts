@@ -45,11 +45,15 @@ export async function GET(
       greeting_malam: bot.greetingMalam,
       bannedWords: bot.bannedWords || [],
       bannedWordsAction: bot.bannedWordsAction || 'delete_warn',
+      bannedWordsMessage: bot.bannedWordsMessage || '',
       antiSpamLimit: bot.antiSpamLimit || 5,
       antiSpamInterval: bot.antiSpamInterval || 10,
       antiSpamMuteDuration: bot.antiSpamMuteDuration || '5m',
+      antiSpamMessage: bot.antiSpamMessage || '',
       antiForwardWarningLimit: bot.antiForwardWarningLimit || 3,
       antiForwardMuteDuration: bot.antiForwardMuteDuration || '1h',
+      antiForwardWarningMessage: bot.antiForwardWarningMessage || '',
+      antiForwardMuteMessage: bot.antiForwardMuteMessage || '',
       enabledFeatures: bot.enabledFeatures || [],
     }
 

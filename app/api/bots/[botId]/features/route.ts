@@ -52,15 +52,23 @@ export async function PATCH(
       if (message !== undefined) bot.bannedWords = message.split(',').map((w: string) => w.trim()).filter(Boolean)
     } else if (feature === 'banned_words_action') {
       bot.bannedWordsAction = message || 'delete_warn'
+    } else if (feature === 'banned_words_message') {
+      bot.bannedWordsMessage = message || ''
     } else if (feature === 'anti_spam_settings') {
       const settings = JSON.parse(message || '{}')
       if (settings.limit) bot.antiSpamLimit = settings.limit
       if (settings.interval) bot.antiSpamInterval = settings.interval
       if (settings.muteDuration) bot.antiSpamMuteDuration = settings.muteDuration
+    } else if (feature === 'anti_spam_message') {
+      bot.antiSpamMessage = message || ''
     } else if (feature === 'anti_forward_settings') {
       const settings = JSON.parse(message || '{}')
       if (settings.warningLimit) bot.antiForwardWarningLimit = settings.warningLimit
       if (settings.muteDuration) bot.antiForwardMuteDuration = settings.muteDuration
+    } else if (feature === 'anti_forward_warning_message') {
+      bot.antiForwardWarningMessage = message || ''
+    } else if (feature === 'anti_forward_mute_message') {
+      bot.antiForwardMuteMessage = message || ''
     }
 
     await bot.save()

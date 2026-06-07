@@ -168,18 +168,15 @@ function DiagnosticSection({ botId, confirmDelete, setConfirmDelete, handleDelet
 function BannedWordsSection({ botId, bot, confirmDelete, setConfirmDelete, handleDeleteFeature, fetchBot }: any) {
   const [words, setWords] = useState((bot.bannedWords || []).join(', '))
   const [action, setAction] = useState(bot.bannedWordsAction || 'delete_warn')
+  const [customMsg, setCustomMsg] = useState(bot.bannedWordsMessage || '')
+  const [showEditMsg, setShowEditMsg] = useState(false)
   const [saving, setSaving] = useState(false)
 
   const handleSave = async () => {
     setSaving(true)
-    await fetch(`/api/bots/${botId}/features`, {
-      method: 'PATCH', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ feature: 'banned_words', message: words }),
-    })
-    await fetch(`/api/bots/${botId}/features`, {
-      method: 'PATCH', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ feature: 'banned_words_action', message: action }),
-    })
+    await fetch(`/api/bots/${botId}/features`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ feature: 'banned_words', message: words }) })
+    await fetch(`/api/bots/${botId}/features`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ feature: 'banned_words_action', message: action }) })
+    await fetch(`/api/bots/${botId}/features`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ feature: 'banned_words_message', message: customMsg }) })
     setSaving(false)
     fetchBot()
   }
@@ -213,6 +210,17 @@ function BannedWordsSection({ botId, bot, confirmDelete, setConfirmDelete, handl
             <option value="delete_warn">Hapus + peringatan</option>
             <option value="delete_mute">Hapus + mute 5 menit</option>
           </select>
+        </div>
+        <div className="mb-3">
+          <button onClick={() => setShowEditMsg(!showEditMsg)} className={`text-xs px-2.5 py-1 rounded-lg border transition-colors ${showEditMsg ? 'border-indigo-300 bg-indigo-50 text-indigo-600' : 'border-slate-200 text-slate-500 hover:text-indigo-500'}`}>
+            Custom Pesan {customMsg ? '●' : ''}
+          </button>
+          {showEditMsg && (
+            <div className="mt-2">
+              <textarea value={customMsg} onChange={(e) => setCustomMsg(e.target.value)} placeholder="⚠️ {mention}, pesanmu dihapus karena mengandung kata terlarang: {word}" rows={2} className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-indigo-300 resize-none bg-slate-50" />
+              <p className="text-[10px] text-slate-400 mt-1">Variabel: {'{mention}'} {'{name}'} {'{word}'}</p>
+            </div>
+          )}
         </div>
         <button onClick={handleSave} disabled={saving} className="px-3.5 py-1.5 bg-indigo-600 hover:bg-indigo-700 disabled:bg-slate-300 text-white text-xs font-medium rounded-lg">
           {saving ? 'Menyimpan...' : 'Simpan'}
