@@ -25,13 +25,7 @@ export async function POST(
       return NextResponse.json({ error: 'Bot tidak ditemukan' }, { status: 404 })
     }
 
-    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL
-    if (!baseUrl) {
-      return NextResponse.json(
-        { error: 'NEXT_PUBLIC_BASE_URL belum dikonfigurasi di Vercel Environment Variables' },
-        { status: 500 }
-      )
-    }
+    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'https://asisten-seven.vercel.app'
 
     const webhookUrl = `${baseUrl}/api/webhook/${bot.botId}`
 
