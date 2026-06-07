@@ -382,7 +382,19 @@ interface BotDetail {
   forceJoinMessage: string
   successMessage: string
   welcomeMessage: string
+  bannedWords: string[]
+  bannedWordsAction: string
+  bannedWordsMessage: string
+  antiSpamLimit: number
+  antiSpamInterval: number
+  antiSpamMuteDuration: string
+  antiSpamMessage: string
+  antiForwardWarningLimit: number
+  antiForwardMuteDuration: string
+  antiForwardWarningMessage: string
+  antiForwardMuteMessage: string
   enabledFeatures: string[]
+  [key: string]: any
 }
 
 interface Feature {
