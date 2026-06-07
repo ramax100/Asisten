@@ -32,18 +32,22 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    const { token } = await request.json()
+    const body = await request.json()
+    const token = body.token?.trim()
 
     if (!token) {
       return NextResponse.json({ error: 'Token diperlukan' }, { status: 400 })
     }
 
     // Verify token with Telegram API
-    const telegramRes = await fetch(`https://api.telegram.org/bot${token}/getMe`)
+    const telegramUrl = `https://api.telegram.org/bot${token}/getMe`
+    const telegramRes = await fetch(telegramUrl)
     const telegramData = await telegramRes.json()
 
     if (!telegramData.ok) {
-      return NextResponse.json({ error: 'Token tidak valid' }, { status: 400 })
+      return NextResponse.json({ 
+        error: `Token tidak valid. Pastikan token benar dari BotFather. (${telegramData.description || 'Unknown error'})` 
+      }, { status: 400 })
     }
 
     const botInfo = telegramData.result
