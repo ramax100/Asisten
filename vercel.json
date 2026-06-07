@@ -1,0 +1,8 @@
+{
+  "framework": "nextjs",
+  "functions": {
+    "app/api/webhook/[botId]/route.ts": {
+      "maxDuration": 10
+    }
+  }
+}
