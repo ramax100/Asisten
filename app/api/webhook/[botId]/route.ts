@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import connectDB from '@/lib/mongodb'
 import Bot from '@/lib/models/Bot'
+import Counter from '@/lib/models/Counter'
 import { handleCommand } from './handleCommand'
 
 export const dynamic = 'force-dynamic'
@@ -217,9 +218,28 @@ async function handleMyChatMember(update: any, bot: any) {
   }
 }
 
-// In-memory stores for anti-spam and anti-forward tracking
-const spamTracker: Record<string, { count: number; firstMsg: number }> = {}
-const forwardWarnings: Record<string, number> = {}
+// Counters stored in MongoDB for persistence across serverless invocations
+async function getCounter(key: string): Promise<{ count: number; firstMsg: number }> {
+  try {
+    const counter = await Counter.findOne({ key })
+    if (counter) return { count: counter.count, firstMsg: counter.firstMsg }
+    return { count: 0, firstMsg: 0 }
+  } catch { return { count: 0, firstMsg: 0 } }
+}
+
+async function setCounter(key: string, count: number, firstMsg: number) {
+  try {
+    await Counter.findOneAndUpdate(
+      { key },
+      { count, firstMsg },
+      { upsert: true, new: true }
+    )
+  } catch {}
+}
+
+async function resetCounter(key: string) {
+  try { await Counter.deleteOne({ key }) } catch {}
+}
 
 // Handle incoming messages
 async function handleMessage(message: any, bot: any) {
@@ -271,8 +291,9 @@ async function handleMessage(message: any, bot: any) {
 
         // Track warnings
         const key = `${chat.id}_${user.id}_forward`
-        forwardWarnings[key] = (forwardWarnings[key] || 0) + 1
-        const warningCount = forwardWarnings[key]
+        const fwdCounter = await getCounter(key)
+        const warningCount = fwdCounter.count + 1
+        await setCounter(key, warningCount, Date.now())
         const warningLimit = bot.antiForwardWarningLimit || 3
 
         if (warningCount >= warningLimit) {
@@ -292,7 +313,7 @@ async function handleMessage(message: any, bot: any) {
             }),
           })
 
-          forwardWarnings[key] = 0
+          await resetCounter(key)
           const customMuteMsg = bot.antiForwardMuteMessage || `🚫 ${userMention} di-mute ${muteDuration} karena forward pesan dari luar grup (${warningLimit}x peringatan).`
           const finalMuteMsg = customMuteMsg.replace(/{mention}/g, userMention).replace(/{name}/g, userName).replace(/{duration}/g, muteDuration).replace(/{limit}/g, String(warningLimit))
           await sendAutoDeleteMsg(bot.token, chat.id, finalMuteMsg, 10000)
@@ -350,14 +371,17 @@ async function handleMessage(message: any, bot: any) {
     const now = Date.now()
     const interval = (bot.antiSpamInterval || 10) * 1000 // convert to ms
     const limit = bot.antiSpamLimit || 5
+    const spamCounter = await getCounter(key)
 
-    if (!spamTracker[key] || (now - spamTracker[key].firstMsg) > interval) {
-      spamTracker[key] = { count: 1, firstMsg: now }
+    if (!spamCounter || (now - spamCounter.firstMsg) > interval) {
+      await setCounter(key, 1, now)
     } else {
-      spamTracker[key].count++
+      await setCounter(key, spamCounter.count + 1, spamCounter.firstMsg)
     }
 
-    if (spamTracker[key].count > limit) {
+    const currentCount = spamCounter ? (now - spamCounter.firstMsg > interval ? 1 : spamCounter.count + 1) : 1
+
+    if (currentCount > limit) {
       // Mute spammer
       const muteDuration = bot.antiSpamMuteDuration || '5m'
       const seconds = parseDurationSimple(muteDuration)
@@ -376,7 +400,7 @@ async function handleMessage(message: any, bot: any) {
         }),
       })
 
-      spamTracker[key] = { count: 0, firstMsg: now }
+      await resetCounter(key)
       const customMsg = bot.antiSpamMessage || `🚫 ${userMention} di-mute ${muteDuration} karena spam (>${limit} pesan dalam ${bot.antiSpamInterval || 10} detik).`
       const finalMsg = customMsg.replace(/{mention}/g, userMention).replace(/{name}/g, userName).replace(/{duration}/g, muteDuration).replace(/{limit}/g, String(limit))
       await sendAutoDeleteMsg(bot.token, chat.id, finalMsg, 10000)
