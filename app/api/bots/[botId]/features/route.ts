@@ -48,6 +48,19 @@ export async function PATCH(
       bot.greetingSore = message || ''
     } else if (feature === 'greeting_malam') {
       bot.greetingMalam = message || ''
+    } else if (feature === 'banned_words') {
+      if (message !== undefined) bot.bannedWords = message.split(',').map((w: string) => w.trim()).filter(Boolean)
+    } else if (feature === 'banned_words_action') {
+      bot.bannedWordsAction = message || 'delete_warn'
+    } else if (feature === 'anti_spam_settings') {
+      const settings = JSON.parse(message || '{}')
+      if (settings.limit) bot.antiSpamLimit = settings.limit
+      if (settings.interval) bot.antiSpamInterval = settings.interval
+      if (settings.muteDuration) bot.antiSpamMuteDuration = settings.muteDuration
+    } else if (feature === 'anti_forward_settings') {
+      const settings = JSON.parse(message || '{}')
+      if (settings.warningLimit) bot.antiForwardWarningLimit = settings.warningLimit
+      if (settings.muteDuration) bot.antiForwardMuteDuration = settings.muteDuration
     }
 
     await bot.save()
@@ -100,6 +113,16 @@ export async function DELETE(
       bot.greetingSiang = ''
       bot.greetingSore = ''
       bot.greetingMalam = ''
+    } else if (feature === 'banned_words') {
+      bot.bannedWords = []
+      bot.bannedWordsAction = 'delete_warn'
+    } else if (feature === 'anti_spam') {
+      bot.antiSpamLimit = 5
+      bot.antiSpamInterval = 10
+      bot.antiSpamMuteDuration = '5m'
+    } else if (feature === 'anti_forward') {
+      bot.antiForwardWarningLimit = 3
+      bot.antiForwardMuteDuration = '1h'
     }
 
     await bot.save()

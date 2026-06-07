@@ -217,38 +217,19 @@ async function handleMyChatMember(update: any, bot: any) {
   }
 }
 
+// In-memory stores for anti-spam and anti-forward tracking
+const spamTracker: Record<string, { count: number; firstMsg: number }> = {}
+const forwardWarnings: Record<string, number> = {}
+
 // Handle incoming messages
 async function handleMessage(message: any, bot: any) {
   const chat = message.chat
   const user = message.from
+  const text = message.text || message.caption || ''
 
   // Only process group messages
   if (chat.type !== 'group' && chat.type !== 'supergroup') {
     return
-  }
-
-  // Skip if force join is disabled
-  if (bot.forceJoinEnabled === false) {
-    return
-  }
-
-  // Skip if bot has no channels configured
-  if (bot.channels.length === 0) {
-    return
-  }
-
-  // Skip forwarded messages from linked channel (auto-forward)
-  if (message.is_automatic_forward) {
-    return
-  }
-
-  // Skip forwarded messages from our own channels
-  if (message.forward_from_chat) {
-    const forwardedChatId = String(message.forward_from_chat.id)
-    const isOurChannel = bot.channels.find((c: any) => c.channelId === forwardedChatId)
-    if (isOurChannel) {
-      return
-    }
   }
 
   // Skip messages from channel posts (sender_chat = channel)
@@ -257,27 +238,196 @@ async function handleMessage(message: any, bot: any) {
   }
 
   // Skip messages from bots
-  if (user.is_bot) {
+  if (!user || user.is_bot) {
     return
   }
 
-  // Skip messages from admins
+  // Skip forwarded messages from linked channel (auto-forward)
+  if (message.is_automatic_forward) {
+    return
+  }
+
+  // Skip messages from admins for all checks
   const isAdmin = await checkIfAdmin(bot.token, chat.id, user.id)
   if (isAdmin) {
     return
   }
 
-  // Check if user has joined all required channels
-  const notJoined = await getNotJoinedChannels(bot.token, user.id, bot.channels)
+  const features = bot.enabledFeatures || []
+  const userName = user.first_name || 'User'
+  const userMention = `<a href="tg://user?id=${user.id}">${userName}</a>`
 
-  if (notJoined.length > 0) {
-    // Delete the user's message
-    await deleteMessage(bot.token, chat.id, message.message_id)
+  // === ANTI-FORWARD CHECK (peringatan 3x lalu mute) ===
+  if (features.includes('anti_forward')) {
+    // Check if message is forwarded from OUTSIDE the group (not from our channels)
+    if (message.forward_from || message.forward_from_chat || message.forward_sender_name) {
+      // Skip if forwarded from our own channels
+      const isOurChannel = message.forward_from_chat && 
+        bot.channels.find((c: any) => c.channelId === String(message.forward_from_chat.id))
+      
+      if (!isOurChannel) {
+        // Delete the forwarded message
+        await deleteMessage(bot.token, chat.id, message.message_id)
 
-    // Send warning with join buttons (skip if disabled)
-    if (bot.forceJoinMessage !== '__disabled__') {
-      await sendForceJoinWarning(bot.token, chat.id, user, notJoined, bot.forceJoinMessage)
+        // Track warnings
+        const key = `${chat.id}_${user.id}_forward`
+        forwardWarnings[key] = (forwardWarnings[key] || 0) + 1
+        const warningCount = forwardWarnings[key]
+        const warningLimit = bot.antiForwardWarningLimit || 3
+
+        if (warningCount >= warningLimit) {
+          // Mute after reaching limit
+          const muteDuration = bot.antiForwardMuteDuration || '1h'
+          const seconds = parseDurationSimple(muteDuration)
+          const untilDate = Math.floor(Date.now() / 1000) + seconds
+
+          await fetch(`https://api.telegram.org/bot${bot.token}/restrictChatMember`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              chat_id: chat.id,
+              user_id: user.id,
+              permissions: { can_send_messages: false, can_send_audios: false, can_send_documents: false, can_send_photos: false, can_send_videos: false, can_send_video_notes: false, can_send_voice_notes: false, can_send_polls: false, can_send_other_messages: false, can_add_web_page_previews: false },
+              until_date: untilDate,
+            }),
+          })
+
+          forwardWarnings[key] = 0
+          await sendAutoDeleteMsg(bot.token, chat.id, `🚫 ${userMention} di-mute ${muteDuration} karena forward pesan dari luar grup (${warningLimit}x peringatan).`, 10000)
+        } else {
+          await sendAutoDeleteMsg(bot.token, chat.id, `⚠️ ${userMention}, dilarang forward pesan dari luar grup! Peringatan ${warningCount}/${warningLimit}.`, 7000)
+        }
+        return
+      }
     }
+  }
+
+  // === BANNED WORDS CHECK ===
+  if (features.includes('banned_words') && bot.bannedWords && bot.bannedWords.length > 0) {
+    const lowerText = text.toLowerCase()
+    const foundWord = bot.bannedWords.find((word: string) => lowerText.includes(word.toLowerCase()))
+
+    if (foundWord) {
+      // Delete the message
+      await deleteMessage(bot.token, chat.id, message.message_id)
+
+      const action = bot.bannedWordsAction || 'delete_warn'
+
+      if (action === 'delete_warn') {
+        await sendAutoDeleteMsg(bot.token, chat.id, `⚠️ ${userMention}, pesanmu dihapus karena mengandung kata terlarang.`, 5000)
+      } else if (action === 'delete_mute') {
+        // Mute 5 minutes
+        const untilDate = Math.floor(Date.now() / 1000) + 300
+        await fetch(`https://api.telegram.org/bot${bot.token}/restrictChatMember`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            chat_id: chat.id,
+            user_id: user.id,
+            permissions: { can_send_messages: false, can_send_audios: false, can_send_documents: false, can_send_photos: false, can_send_videos: false, can_send_video_notes: false, can_send_voice_notes: false, can_send_polls: false, can_send_other_messages: false, can_add_web_page_previews: false },
+            until_date: untilDate,
+          }),
+        })
+        await sendAutoDeleteMsg(bot.token, chat.id, `🔇 ${userMention} di-mute 5 menit karena menggunakan kata terlarang.`, 7000)
+      } else {
+        // delete_only - just delete
+      }
+      return
+    }
+  }
+
+  // === ANTI-SPAM CHECK ===
+  if (features.includes('anti_spam')) {
+    const key = `${chat.id}_${user.id}_spam`
+    const now = Date.now()
+    const interval = (bot.antiSpamInterval || 10) * 1000 // convert to ms
+    const limit = bot.antiSpamLimit || 5
+
+    if (!spamTracker[key] || (now - spamTracker[key].firstMsg) > interval) {
+      spamTracker[key] = { count: 1, firstMsg: now }
+    } else {
+      spamTracker[key].count++
+    }
+
+    if (spamTracker[key].count > limit) {
+      // Mute spammer
+      const muteDuration = bot.antiSpamMuteDuration || '5m'
+      const seconds = parseDurationSimple(muteDuration)
+      const untilDate = Math.floor(Date.now() / 1000) + seconds
+
+      await deleteMessage(bot.token, chat.id, message.message_id)
+
+      await fetch(`https://api.telegram.org/bot${bot.token}/restrictChatMember`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          chat_id: chat.id,
+          user_id: user.id,
+          permissions: { can_send_messages: false, can_send_audios: false, can_send_documents: false, can_send_photos: false, can_send_videos: false, can_send_video_notes: false, can_send_voice_notes: false, can_send_polls: false, can_send_other_messages: false, can_add_web_page_previews: false },
+          until_date: untilDate,
+        }),
+      })
+
+      spamTracker[key] = { count: 0, firstMsg: now }
+      await sendAutoDeleteMsg(bot.token, chat.id, `🚫 ${userMention} di-mute ${muteDuration} karena spam (>${limit} pesan dalam ${bot.antiSpamInterval || 10} detik).`, 10000)
+      return
+    }
+  }
+
+  // === FORCE JOIN CHECK ===
+  if (features.includes('force_join') || bot.forceJoinEnabled !== false) {
+    if (bot.channels && bot.channels.length > 0) {
+      // Skip forwarded messages from our own channels
+      if (message.forward_from_chat) {
+        const forwardedChatId = String(message.forward_from_chat.id)
+        const isOurChannel = bot.channels.find((c: any) => c.channelId === forwardedChatId)
+        if (isOurChannel) return
+      }
+
+      const notJoined = await getNotJoinedChannels(bot.token, user.id, bot.channels)
+
+      if (notJoined.length > 0) {
+        await deleteMessage(bot.token, chat.id, message.message_id)
+
+        if (bot.forceJoinMessage !== '__disabled__') {
+          await sendForceJoinWarning(bot.token, chat.id, user, notJoined, bot.forceJoinMessage)
+        }
+      }
+    }
+  }
+}
+
+// Parse duration string helper
+function parseDurationSimple(duration: string): number {
+  const match = duration.match(/^(\d+)([smhd])$/)
+  if (!match) return 300 // default 5 minutes
+  const value = parseInt(match[1])
+  const unit = match[2]
+  switch (unit) {
+    case 's': return value
+    case 'm': return value * 60
+    case 'h': return value * 3600
+    case 'd': return value * 86400
+    default: return 300
+  }
+}
+
+// Send auto-delete message
+async function sendAutoDeleteMsg(token: string, chatId: number, text: string, deleteAfterMs: number) {
+  try {
+    const res = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ chat_id: chatId, text, parse_mode: 'HTML' }),
+    })
+    const data = await res.json()
+    if (data.ok && deleteAfterMs > 0) {
+      setTimeout(async () => {
+        await deleteMessage(token, chatId, data.result.message_id)
+      }, deleteAfterMs)
+    }
+  } catch (error) {
+    console.error('Send auto-delete msg error:', error)
   }
 }
 

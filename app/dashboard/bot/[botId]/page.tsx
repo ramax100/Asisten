@@ -164,6 +164,192 @@ function DiagnosticSection({ botId, confirmDelete, setConfirmDelete, handleDelet
   )
 }
 
+// Banned Words Section
+function BannedWordsSection({ botId, bot, confirmDelete, setConfirmDelete, handleDeleteFeature, fetchBot }: any) {
+  const [words, setWords] = useState((bot.bannedWords || []).join(', '))
+  const [action, setAction] = useState(bot.bannedWordsAction || 'delete_warn')
+  const [saving, setSaving] = useState(false)
+
+  const handleSave = async () => {
+    setSaving(true)
+    await fetch(`/api/bots/${botId}/features`, {
+      method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ feature: 'banned_words', message: words }),
+    })
+    await fetch(`/api/bots/${botId}/features`, {
+      method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ feature: 'banned_words_action', message: action }),
+    })
+    setSaving(false)
+    fetchBot()
+  }
+
+  return (
+    <section className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+      <div className="px-4 py-3 border-b border-slate-100 flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <span>🤬</span>
+          <h2 className="text-sm font-semibold text-slate-800">Kata Terlarang</h2>
+        </div>
+        {confirmDelete === 'banned_words' ? (
+          <div className="flex items-center gap-2">
+            <button onClick={() => handleDeleteFeature('banned_words')} className="text-xs bg-red-500 text-white px-2 py-0.5 rounded">Ya</button>
+            <button onClick={() => setConfirmDelete('')} className="text-xs text-slate-400">Batal</button>
+          </div>
+        ) : (
+          <button onClick={() => setConfirmDelete('banned_words')} className="text-xs text-slate-400 hover:text-red-500 transition-colors">Hapus</button>
+        )}
+      </div>
+      <div className="px-4 py-4">
+        <p className="text-xs text-slate-500 mb-3">Pesan yang mengandung kata terlarang akan otomatis dihapus.</p>
+        <div className="mb-3">
+          <label className="block text-xs text-slate-600 mb-1 font-medium">Daftar kata (pisahkan dengan koma):</label>
+          <textarea value={words} onChange={(e) => setWords(e.target.value)} placeholder="kata1, kata2, kata3" rows={3} className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-indigo-300 resize-none bg-slate-50" />
+        </div>
+        <div className="mb-3">
+          <label className="block text-xs text-slate-600 mb-1 font-medium">Aksi:</label>
+          <select value={action} onChange={(e) => setAction(e.target.value)} className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-indigo-300 bg-slate-50">
+            <option value="delete_only">Hapus pesan saja</option>
+            <option value="delete_warn">Hapus + peringatan</option>
+            <option value="delete_mute">Hapus + mute 5 menit</option>
+          </select>
+        </div>
+        <button onClick={handleSave} disabled={saving} className="px-3.5 py-1.5 bg-indigo-600 hover:bg-indigo-700 disabled:bg-slate-300 text-white text-xs font-medium rounded-lg">
+          {saving ? 'Menyimpan...' : 'Simpan'}
+        </button>
+        {bot.bannedWords && bot.bannedWords.length > 0 && (
+          <p className="text-[10px] text-slate-400 mt-2">Tersimpan: {bot.bannedWords.length} kata</p>
+        )}
+      </div>
+    </section>
+  )
+}
+
+// Anti-Spam Section
+function AntiSpamSection({ botId, bot, confirmDelete, setConfirmDelete, handleDeleteFeature, fetchBot }: any) {
+  const [limit, setLimit] = useState(bot.antiSpamLimit || 5)
+  const [interval, setInterval2] = useState(bot.antiSpamInterval || 10)
+  const [muteDuration, setMuteDuration] = useState(bot.antiSpamMuteDuration || '5m')
+  const [saving, setSaving] = useState(false)
+
+  const handleSave = async () => {
+    setSaving(true)
+    await fetch(`/api/bots/${botId}/features`, {
+      method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ feature: 'anti_spam_settings', message: JSON.stringify({ limit, interval: interval2, muteDuration }) }),
+    })
+    setSaving(false)
+    fetchBot()
+  }
+
+  return (
+    <section className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+      <div className="px-4 py-3 border-b border-slate-100 flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <span>🚫</span>
+          <h2 className="text-sm font-semibold text-slate-800">Anti-Spam</h2>
+        </div>
+        {confirmDelete === 'anti_spam' ? (
+          <div className="flex items-center gap-2">
+            <button onClick={() => handleDeleteFeature('anti_spam')} className="text-xs bg-red-500 text-white px-2 py-0.5 rounded">Ya</button>
+            <button onClick={() => setConfirmDelete('')} className="text-xs text-slate-400">Batal</button>
+          </div>
+        ) : (
+          <button onClick={() => setConfirmDelete('anti_spam')} className="text-xs text-slate-400 hover:text-red-500 transition-colors">Hapus</button>
+        )}
+      </div>
+      <div className="px-4 py-4">
+        <p className="text-xs text-slate-500 mb-3">Mute member yang mengirim pesan terlalu banyak dalam waktu singkat.</p>
+        <div className="grid grid-cols-3 gap-2 mb-3">
+          <div>
+            <label className="block text-[10px] text-slate-500 mb-1">Batas pesan</label>
+            <input type="number" value={limit} onChange={(e) => setLimit(Number(e.target.value))} min={2} max={50} className="w-full px-2 py-1.5 border border-slate-200 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-indigo-300 bg-slate-50" />
+          </div>
+          <div>
+            <label className="block text-[10px] text-slate-500 mb-1">Dalam (detik)</label>
+            <input type="number" value={interval2} onChange={(e) => setInterval2(Number(e.target.value))} min={5} max={120} className="w-full px-2 py-1.5 border border-slate-200 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-indigo-300 bg-slate-50" />
+          </div>
+          <div>
+            <label className="block text-[10px] text-slate-500 mb-1">Mute durasi</label>
+            <select value={muteDuration} onChange={(e) => setMuteDuration(e.target.value)} className="w-full px-2 py-1.5 border border-slate-200 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-indigo-300 bg-slate-50">
+              <option value="1m">1 menit</option>
+              <option value="5m">5 menit</option>
+              <option value="15m">15 menit</option>
+              <option value="30m">30 menit</option>
+              <option value="1h">1 jam</option>
+              <option value="1d">1 hari</option>
+            </select>
+          </div>
+        </div>
+        <button onClick={handleSave} disabled={saving} className="px-3.5 py-1.5 bg-indigo-600 hover:bg-indigo-700 disabled:bg-slate-300 text-white text-xs font-medium rounded-lg">
+          {saving ? 'Menyimpan...' : 'Simpan'}
+        </button>
+        <p className="text-[10px] text-slate-400 mt-2">Saat ini: mute jika kirim &gt;{bot.antiSpamLimit || 5} pesan dalam {bot.antiSpamInterval || 10} detik</p>
+      </div>
+    </section>
+  )
+}
+
+// Anti-Forward Section
+function AntiForwardSection({ botId, bot, confirmDelete, setConfirmDelete, handleDeleteFeature, fetchBot }: any) {
+  const [warningLimit, setWarningLimit] = useState(bot.antiForwardWarningLimit || 3)
+  const [muteDuration, setMuteDuration] = useState(bot.antiForwardMuteDuration || '1h')
+  const [saving, setSaving] = useState(false)
+
+  const handleSave = async () => {
+    setSaving(true)
+    await fetch(`/api/bots/${botId}/features`, {
+      method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ feature: 'anti_forward_settings', message: JSON.stringify({ warningLimit, muteDuration }) }),
+    })
+    setSaving(false)
+    fetchBot()
+  }
+
+  return (
+    <section className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+      <div className="px-4 py-3 border-b border-slate-100 flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <span>↩️</span>
+          <h2 className="text-sm font-semibold text-slate-800">Anti-Forward</h2>
+        </div>
+        {confirmDelete === 'anti_forward' ? (
+          <div className="flex items-center gap-2">
+            <button onClick={() => handleDeleteFeature('anti_forward')} className="text-xs bg-red-500 text-white px-2 py-0.5 rounded">Ya</button>
+            <button onClick={() => setConfirmDelete('')} className="text-xs text-slate-400">Batal</button>
+          </div>
+        ) : (
+          <button onClick={() => setConfirmDelete('anti_forward')} className="text-xs text-slate-400 hover:text-red-500 transition-colors">Hapus</button>
+        )}
+      </div>
+      <div className="px-4 py-4">
+        <p className="text-xs text-slate-500 mb-3">Hapus pesan yang di-forward dari luar grup. Member akan diberi peringatan, setelah batas tercapai akan di-mute.</p>
+        <div className="grid grid-cols-2 gap-2 mb-3">
+          <div>
+            <label className="block text-[10px] text-slate-500 mb-1">Batas peringatan</label>
+            <input type="number" value={warningLimit} onChange={(e) => setWarningLimit(Number(e.target.value))} min={1} max={10} className="w-full px-2 py-1.5 border border-slate-200 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-indigo-300 bg-slate-50" />
+          </div>
+          <div>
+            <label className="block text-[10px] text-slate-500 mb-1">Mute durasi</label>
+            <select value={muteDuration} onChange={(e) => setMuteDuration(e.target.value)} className="w-full px-2 py-1.5 border border-slate-200 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-indigo-300 bg-slate-50">
+              <option value="5m">5 menit</option>
+              <option value="15m">15 menit</option>
+              <option value="30m">30 menit</option>
+              <option value="1h">1 jam</option>
+              <option value="3h">3 jam</option>
+              <option value="1d">1 hari</option>
+            </select>
+          </div>
+        </div>
+        <button onClick={handleSave} disabled={saving} className="px-3.5 py-1.5 bg-indigo-600 hover:bg-indigo-700 disabled:bg-slate-300 text-white text-xs font-medium rounded-lg">
+          {saving ? 'Menyimpan...' : 'Simpan'}
+        </button>
+        <p className="text-[10px] text-slate-400 mt-2">Saat ini: peringatan {bot.antiForwardWarningLimit || 3}x, lalu mute {bot.antiForwardMuteDuration || '1h'}</p>
+      </div>
+    </section>
+  )
+}
+
 interface Channel {
   channelId: string
   channelUsername: string
@@ -205,6 +391,9 @@ const ALL_FEATURES: Feature[] = [
   { id: 'welcome', name: 'Welcome Message', desc: 'Sambut member baru yang masuk grup', icon: '👋' },
   { id: 'greeting', name: 'Ucapan Otomatis', desc: 'Kirim ucapan selamat pagi, siang, sore, malam', icon: '🕐' },
   { id: 'moderation', name: 'Moderasi (Mute/Kick/Ban)', desc: 'Admin bisa mute, kick, ban member via command', icon: '⚔️' },
+  { id: 'banned_words', name: 'Kata Terlarang', desc: 'Hapus pesan yang mengandung kata tertentu + mute', icon: '🤬' },
+  { id: 'anti_spam', name: 'Anti-Spam', desc: 'Mute member yang spam pesan berlebihan', icon: '🚫' },
+  { id: 'anti_forward', name: 'Anti-Forward', desc: 'Larang forward pesan dari luar grup (peringatan 3x lalu mute)', icon: '↩️' },
 ]
 
 export default function BotSettingsPage() {
@@ -879,6 +1068,21 @@ export default function BotSettingsPage() {
               </div>
             </div>
           </section>
+        )}
+
+        {/* BANNED WORDS */}
+        {enabledFeatures.includes('banned_words') && (
+          <BannedWordsSection botId={botId} bot={bot} confirmDelete={confirmDelete} setConfirmDelete={setConfirmDelete} handleDeleteFeature={handleDeleteFeature} fetchBot={fetchBot} />
+        )}
+
+        {/* ANTI-SPAM */}
+        {enabledFeatures.includes('anti_spam') && (
+          <AntiSpamSection botId={botId} bot={bot} confirmDelete={confirmDelete} setConfirmDelete={setConfirmDelete} handleDeleteFeature={handleDeleteFeature} fetchBot={fetchBot} />
+        )}
+
+        {/* ANTI-FORWARD */}
+        {enabledFeatures.includes('anti_forward') && (
+          <AntiForwardSection botId={botId} bot={bot} confirmDelete={confirmDelete} setConfirmDelete={setConfirmDelete} handleDeleteFeature={handleDeleteFeature} fetchBot={fetchBot} />
         )}
 
         {/* ===== ADD FEATURE BUTTON ===== */}

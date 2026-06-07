@@ -52,6 +52,13 @@ const BotSchema = new Schema<IBot>(
     greetingSiang: { type: String, default: '' },
     greetingSore: { type: String, default: '' },
     greetingMalam: { type: String, default: '' },
+    bannedWords: [{ type: String }],
+    bannedWordsAction: { type: String, default: 'delete_warn' },
+    antiSpamLimit: { type: Number, default: 5 },
+    antiSpamInterval: { type: Number, default: 10 },
+    antiSpamMuteDuration: { type: String, default: '5m' },
+    antiForwardWarningLimit: { type: Number, default: 3 },
+    antiForwardMuteDuration: { type: String, default: '1h' },
     enabledFeatures: [{ type: String }],
   },
   { timestamps: true }

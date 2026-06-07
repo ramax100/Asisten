@@ -43,6 +43,13 @@ export async function GET(
       greeting_siang: bot.greetingSiang,
       greeting_sore: bot.greetingSore,
       greeting_malam: bot.greetingMalam,
+      bannedWords: bot.bannedWords || [],
+      bannedWordsAction: bot.bannedWordsAction || 'delete_warn',
+      antiSpamLimit: bot.antiSpamLimit || 5,
+      antiSpamInterval: bot.antiSpamInterval || 10,
+      antiSpamMuteDuration: bot.antiSpamMuteDuration || '5m',
+      antiForwardWarningLimit: bot.antiForwardWarningLimit || 3,
+      antiForwardMuteDuration: bot.antiForwardMuteDuration || '1h',
       enabledFeatures: bot.enabledFeatures || [],
     }
 
