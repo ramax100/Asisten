@@ -21,69 +21,32 @@ export default function LoginPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ username, password }),
       })
-
       const data = await res.json()
-
-      if (res.ok) {
-        router.push('/dashboard')
-      } else {
-        setError(data.error || 'Username atau password salah')
-      }
-    } catch (err) {
-      setError('Gagal menghubungi server')
-    } finally {
-      setLoading(false)
-    }
+      if (res.ok) { router.push('/dashboard') }
+      else { setError(data.error || 'Username atau password salah') }
+    } catch (err) { setError('Gagal menghubungi server') }
+    finally { setLoading(false) }
   }
 
   return (
-    <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: '#f8fafc', padding: '16px' }}>
-      <div style={{ width: '100%', maxWidth: '384px' }}>
-        <div style={{ textAlign: 'center', marginBottom: '32px' }}>
-          <h1 style={{ fontSize: '24px', fontWeight: 'bold', color: '#1e293b' }}>Bot Panel</h1>
-          <p style={{ color: '#64748b', fontSize: '14px', marginTop: '4px' }}>Masuk ke panel admin</p>
+    <div className="min-h-screen flex items-center justify-center bg-slate-50 px-4">
+      <div className="w-full max-w-sm">
+        <div className="text-center mb-8">
+          <h1 className="text-2xl font-bold text-slate-800">Bot Panel</h1>
+          <p className="text-slate-500 text-sm mt-1">Masuk ke panel admin</p>
         </div>
 
-        <form onSubmit={handleLogin} style={{ backgroundColor: 'white', borderRadius: '16px', padding: '24px', boxShadow: '0 1px 3px rgba(0,0,0,0.1)', border: '1px solid #e2e8f0' }}>
-          <div style={{ marginBottom: '16px' }}>
-            <label style={{ display: 'block', fontSize: '12px', fontWeight: '500', color: '#475569', marginBottom: '6px' }}>
-              Username
-            </label>
-            <input
-              type="text"
-              value={username}
-              onChange={(e) => setUsername(e.target.value)}
-              style={{ width: '100%', padding: '10px 14px', border: '1px solid #e2e8f0', borderRadius: '12px', fontSize: '14px', backgroundColor: '#f8fafc', outline: 'none' }}
-              placeholder="admin"
-              required
-            />
+        <form onSubmit={handleLogin} className="bg-white rounded-2xl p-6 shadow-sm border border-slate-200">
+          <div className="mb-4">
+            <label className="block text-xs font-medium text-slate-600 mb-1.5">Username</label>
+            <input type="text" value={username} onChange={(e) => setUsername(e.target.value)} className="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl text-sm bg-slate-50 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent focus:bg-white" placeholder="admin" required />
           </div>
-
-          <div style={{ marginBottom: '20px' }}>
-            <label style={{ display: 'block', fontSize: '12px', fontWeight: '500', color: '#475569', marginBottom: '6px' }}>
-              Password
-            </label>
-            <input
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              style={{ width: '100%', padding: '10px 14px', border: '1px solid #e2e8f0', borderRadius: '12px', fontSize: '14px', backgroundColor: '#f8fafc', outline: 'none' }}
-              placeholder="********"
-              required
-            />
+          <div className="mb-5">
+            <label className="block text-xs font-medium text-slate-600 mb-1.5">Password</label>
+            <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} className="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl text-sm bg-slate-50 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent focus:bg-white" placeholder="********" required />
           </div>
-
-          {error && (
-            <div style={{ marginBottom: '16px', padding: '12px', backgroundColor: '#fef2f2', border: '1px solid #fecaca', borderRadius: '12px' }}>
-              <p style={{ color: '#dc2626', fontSize: '12px' }}>{error}</p>
-            </div>
-          )}
-
-          <button
-            type="submit"
-            disabled={loading || !username || !password}
-            style={{ width: '100%', padding: '10px', backgroundColor: loading ? '#94a3b8' : '#4f46e5', color: 'white', fontSize: '14px', fontWeight: '500', borderRadius: '12px', border: 'none', cursor: loading ? 'not-allowed' : 'pointer' }}
-          >
+          {error && <div className="mb-4 p-3 bg-red-50 border border-red-100 rounded-xl"><p className="text-red-600 text-xs">{error}</p></div>}
+          <button type="submit" disabled={loading || !username || !password} className="w-full py-2.5 bg-indigo-600 hover:bg-indigo-700 disabled:bg-slate-300 text-white text-sm font-medium rounded-xl">
             {loading ? 'Memproses...' : 'Masuk'}
           </button>
         </form>
