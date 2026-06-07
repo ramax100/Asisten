@@ -150,6 +150,29 @@ export default function BotSettingsPage() {
     fetchBot()
   }
 
+  // Delete/reset messages
+  const handleDeleteWarning = async () => {
+    await fetch(`/api/bots/${botId}/features`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ feature: 'force_join_message', message: '' }),
+    })
+    setWarningText('')
+    setEditingWarning(false)
+    fetchBot()
+  }
+
+  const handleDeleteSuccess = async () => {
+    await fetch(`/api/bots/${botId}/features`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ feature: 'success_message', message: '' }),
+    })
+    setSuccessText('')
+    setEditingSuccess(false)
+    fetchBot()
+  }
+
   // === CHANNEL / GROUP / WEBHOOK ===
   const handleAddChannel = async (e: React.FormEvent) => {
     e.preventDefault(); setAddingChannel(true); setChannelError('')
@@ -324,12 +347,14 @@ export default function BotSettingsPage() {
               <p className="text-xs text-slate-500 mb-3">Member wajib join channel sebelum bisa kirim pesan di grup.</p>
 
               {/* Action buttons */}
-              <div className="flex gap-2 mb-4">
-                <button onClick={() => { setEditingWarning(!editingWarning); setEditingSuccess(false) }} className={`text-xs px-2.5 py-1 rounded-lg border transition-colors ${editingWarning ? 'border-indigo-300 bg-indigo-50 text-indigo-600' : 'border-slate-200 text-slate-500 hover:border-indigo-200 hover:text-indigo-500'}`}>
+              <div className="flex flex-wrap gap-2 mb-4">
+                <button onClick={() => { setEditingWarning(!editingWarning); setEditingSuccess(false) }} className={`text-xs px-2.5 py-1 rounded-lg border transition-colors flex items-center gap-1 ${editingWarning ? 'border-indigo-300 bg-indigo-50 text-indigo-600' : 'border-slate-200 text-slate-500 hover:border-indigo-200 hover:text-indigo-500'}`}>
                   Edit Pesan Warning
+                  {bot.forceJoinMessage && <span className="w-1.5 h-1.5 rounded-full bg-indigo-400"></span>}
                 </button>
-                <button onClick={() => { setEditingSuccess(!editingSuccess); setEditingWarning(false) }} className={`text-xs px-2.5 py-1 rounded-lg border transition-colors ${editingSuccess ? 'border-emerald-300 bg-emerald-50 text-emerald-600' : 'border-slate-200 text-slate-500 hover:border-emerald-200 hover:text-emerald-500'}`}>
+                <button onClick={() => { setEditingSuccess(!editingSuccess); setEditingWarning(false) }} className={`text-xs px-2.5 py-1 rounded-lg border transition-colors flex items-center gap-1 ${editingSuccess ? 'border-emerald-300 bg-emerald-50 text-emerald-600' : 'border-slate-200 text-slate-500 hover:border-emerald-200 hover:text-emerald-500'}`}>
                   Edit Pesan Sukses
+                  {bot.successMessage && <span className="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>}
                 </button>
               </div>
 
@@ -341,6 +366,7 @@ export default function BotSettingsPage() {
                   <p className="text-[10px] text-indigo-400 mt-1">Variabel: {'{mention}'} {'{name}'} {'{username}'} {'{id}'} {'{channels}'}</p>
                   <div className="flex gap-2 mt-2">
                     <button onClick={handleSaveWarning} disabled={saving} className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 disabled:bg-slate-300 text-white text-xs rounded-lg">{saving ? '...' : 'Simpan'}</button>
+                    <button onClick={() => { setWarningText(''); handleDeleteWarning() }} className="px-3 py-1.5 text-xs text-red-500 border border-red-200 rounded-lg hover:bg-red-50">Hapus Pesan</button>
                     <button onClick={() => setEditingWarning(false)} className="px-3 py-1.5 text-xs text-slate-500 border border-slate-200 rounded-lg hover:bg-slate-50">Batal</button>
                   </div>
                 </div>
@@ -354,6 +380,7 @@ export default function BotSettingsPage() {
                   <p className="text-[10px] text-emerald-400 mt-1">Variabel: {'{mention}'} {'{name}'} {'{username}'} {'{id}'}</p>
                   <div className="flex gap-2 mt-2">
                     <button onClick={handleSaveSuccess} disabled={saving} className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 disabled:bg-slate-300 text-white text-xs rounded-lg">{saving ? '...' : 'Simpan'}</button>
+                    <button onClick={() => { setSuccessText(''); handleDeleteSuccess() }} className="px-3 py-1.5 text-xs text-red-500 border border-red-200 rounded-lg hover:bg-red-50">Hapus Pesan</button>
                     <button onClick={() => setEditingSuccess(false)} className="px-3 py-1.5 text-xs text-slate-500 border border-slate-200 rounded-lg hover:bg-slate-50">Batal</button>
                   </div>
                 </div>
