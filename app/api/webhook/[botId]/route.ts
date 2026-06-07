@@ -274,11 +274,16 @@ async function handleMessage(message: any, bot: any) {
   }
 
   const features = bot.enabledFeatures || []
+  // Force enable all protection features if they have config
+  const hasAntiSpam = features.includes('anti_spam') || bot.antiSpamLimit
+  const hasAntiForward = features.includes('anti_forward') || bot.antiForwardWarningLimit
+  const hasBannedWords = features.includes('banned_words') || (bot.bannedWords && bot.bannedWords.length > 0)
+  const hasForceJoin = features.includes('force_join') || (bot.channels && bot.channels.length > 0)
   const userName = user.first_name || 'User'
   const userMention = `<a href="tg://user?id=${user.id}">${userName}</a>`
 
   // === ANTI-FORWARD CHECK (peringatan 3x lalu mute) ===
-  if (features.includes('anti_forward')) {
+  if (hasAntiForward) {
     // Check if message is forwarded from OUTSIDE the group (not from our channels)
     if (message.forward_from || message.forward_from_chat || message.forward_sender_name) {
       // Skip if forwarded from our own channels
@@ -328,7 +333,7 @@ async function handleMessage(message: any, bot: any) {
   }
 
   // === BANNED WORDS CHECK ===
-  if (features.includes('banned_words') && bot.bannedWords && bot.bannedWords.length > 0) {
+  if (hasBannedWords && bot.bannedWords && bot.bannedWords.length > 0) {
     const lowerText = text.toLowerCase()
     const foundWord = bot.bannedWords.find((word: string) => lowerText.includes(word.toLowerCase()))
 
@@ -366,7 +371,7 @@ async function handleMessage(message: any, bot: any) {
   }
 
   // === ANTI-SPAM CHECK ===
-  if (features.includes('anti_spam')) {
+  if (hasAntiSpam) {
     const key = `spam_${chat.id}_${user.id}`
     const now = Date.now()
     const interval = (bot.antiSpamInterval || 10) * 1000
@@ -418,7 +423,7 @@ async function handleMessage(message: any, bot: any) {
   }
 
   // === FORCE JOIN CHECK ===
-  if (features.includes('force_join') || bot.forceJoinEnabled !== false) {
+  if (hasForceJoin) {
     if (bot.channels && bot.channels.length > 0) {
       // Skip forwarded messages from our own channels
       if (message.forward_from_chat) {
