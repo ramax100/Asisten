@@ -131,35 +131,55 @@ async function handleCommand(message: any, bot: any) {
   // Check if moderation feature is enabled
   if (!bot.enabledFeatures || !bot.enabledFeatures.includes('moderation')) return
 
-  // Only admins can use commands
-  const isAdmin = await checkIfAdmin(bot.token, chat.id, user.id)
-  if (!isAdmin) return
+  // Parse command (remove @botusername)
+  const parts = text.split(' ')
+  const command = parts[0].split('@')[0].toLowerCase()
+
+  // Only handle known commands
+  if (!['/mute', '/unmute', '/kick', '/ban', '/unban'].includes(command)) return
+
+  // Check if sender is admin (inline check, not using external function)
+  try {
+    const adminRes = await fetch(
+      `https://api.telegram.org/bot${bot.token}/getChatMember?chat_id=${chat.id}&user_id=${user.id}`
+    )
+    const adminData = await adminRes.json()
+    if (!adminData.ok) return
+    const senderStatus = adminData.result.status
+    if (senderStatus !== 'creator' && senderStatus !== 'administrator') return
+  } catch { return }
 
   // Get target user (from reply)
   const replyMsg = message.reply_to_message
-  if (!replyMsg && (text.startsWith('/mute') || text.startsWith('/kick') || text.startsWith('/ban') || text.startsWith('/unmute') || text.startsWith('/unban'))) {
+  if (!replyMsg) {
     await sendTempMessage(bot.token, chat.id, '⚠️ Reply pesan member yang ingin di-action.', 5000)
     return
   }
 
-  if (!replyMsg) return
-
   const targetUser = replyMsg.from
   if (!targetUser) return
-
-  // Don't allow action on admins
-  const targetIsAdmin = await checkIfAdmin(bot.token, chat.id, targetUser.id)
-  if (targetIsAdmin) {
-    await sendTempMessage(bot.token, chat.id, '❌ Tidak bisa melakukan action pada admin.', 5000)
+  if (targetUser.is_bot) {
+    await sendTempMessage(bot.token, chat.id, '❌ Tidak bisa action pada bot.', 5000)
     return
   }
 
+  // Don't allow action on admins
+  try {
+    const targetRes = await fetch(
+      `https://api.telegram.org/bot${bot.token}/getChatMember?chat_id=${chat.id}&user_id=${targetUser.id}`
+    )
+    const targetData = await targetRes.json()
+    if (targetData.ok) {
+      const ts = targetData.result.status
+      if (ts === 'creator' || ts === 'administrator') {
+        await sendTempMessage(bot.token, chat.id, '❌ Tidak bisa action pada admin.', 5000)
+        return
+      }
+    }
+  } catch {}
+
   const targetName = targetUser.first_name || 'User'
   const targetMention = `<a href="tg://user?id=${targetUser.id}">${targetName}</a>`
-
-  // Parse command
-  const parts = text.split(' ')
-  const command = parts[0].replace('@' + bot.botUsername, '').toLowerCase()
 
   if (command === '/mute') {
     const duration = parts[1] || '1h'
