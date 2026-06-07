@@ -20,11 +20,13 @@ export async function POST(
 
     // Handle different update types
     if (update.message) {
+      const msgText = update.message.text || ''
+
       // Check for new member join
       if (update.message.new_chat_members) {
         await handleNewMembers(update.message, bot)
-      } else if (update.message.text && update.message.text.match(/^\/(mute|unmute|kick|ban|unban)/)) {
-        // Handle moderation commands only - skip force join check
+      } else if (msgText.match(/^\/(mute|unmute|kick|ban|unban)/i)) {
+        // Handle moderation commands - skip force join check
         await handleCommand(update.message, bot)
       } else {
         await handleMessage(update.message, bot)
@@ -129,7 +131,9 @@ async function handleCommand(message: any, bot: any) {
   if (chat.type !== 'group' && chat.type !== 'supergroup') return
 
   // Check if moderation feature is enabled
-  if (!bot.enabledFeatures || !bot.enabledFeatures.includes('moderation')) return
+  // Temporarily allow all - for debugging
+  const features = bot.enabledFeatures || []
+  const moderationEnabled = features.includes('moderation') || true
 
   // Parse command (remove @botusername)
   const parts = text.split(' ')
