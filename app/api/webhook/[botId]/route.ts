@@ -58,8 +58,12 @@ export async function POST(
     if (update.message) {
       const msgText = update.message.text || ''
 
-      // Opportunistic greeting on group activity (runs for any message type)
-      await maybeSendGreeting(update.message, bot)
+      // Opportunistic greeting on group activity. Skip on service messages
+      // (new member join, member leave) so the greeting and welcome don't
+      // arrive together for the same join event.
+      if (!update.message.new_chat_members && !update.message.left_chat_member) {
+        await maybeSendGreeting(update.message, bot)
+      }
 
       // Check for new member join
       if (update.message.new_chat_members) {
@@ -67,6 +71,9 @@ export async function POST(
       } else if (msgText.match(/^\/spamdebug/i)) {
         // Diagnostic command: report live anti-spam state in-chat
         await handleSpamDebug(update.message, bot)
+      } else if (msgText.match(/^\/welcomedebug/i)) {
+        // Diagnostic command: report live welcome state in-chat
+        await handleWelcomeDebug(update.message, bot)
       } else if (msgText.match(/^\/(mute|unmute|kick|ban|unban)/i)) {
         // Handle moderation commands - skip force join check
         await handleCommand(update.message, bot)
@@ -467,6 +474,81 @@ async function handleSpamDebug(message: any, bot: any) {
     `Counter kamu sekarang: <b>${c.count}</b> (window dimulai ${sinceSec}s lalu)`,
     `enabledFeatures: <code>${features.join(', ') || '(kosong)'}</code>`,
     `antiSpamEnabled flag: <code>${String(bot.antiSpamEnabled)}</code>`,
+  ]
+
+  await fetch(`https://api.telegram.org/bot${bot.token}/sendMessage`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ chat_id: chat.id, text: lines.join('\n'), parse_mode: 'HTML' }),
+  })
+}
+
+// Diagnostic command: reply in-chat with the live welcome-feature state so
+// admins can diagnose why /welcome isn't firing without checking server logs.
+async function handleWelcomeDebug(message: any, bot: any) {
+  const chat = message.chat
+  const user = message.from
+  if (!user) return
+  if (chat.type !== 'group' && chat.type !== 'supergroup') {
+    await fetch(`https://api.telegram.org/bot${bot.token}/sendMessage`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ chat_id: chat.id, text: '⚠️ /welcomedebug hanya bekerja di dalam grup.' }),
+    })
+    return
+  }
+
+  const features = bot.enabledFeatures || []
+  const hasWelcome = features.includes('welcome')
+  const isDisabled = bot.welcomeMessage === '__disabled__'
+  const hasCustom = !!(bot.welcomeMessage && bot.welcomeMessage.trim() && !isDisabled)
+
+  // Check bot admin status — required for chat_member updates (self-join welcome).
+  let botAdminStatus = '?'
+  try {
+    const me = await fetch(`https://api.telegram.org/bot${bot.token}/getMe`)
+    const meData = await me.json()
+    if (meData.ok) {
+      const cm = await fetch(
+        `https://api.telegram.org/bot${bot.token}/getChatMember?chat_id=${chat.id}&user_id=${meData.result.id}`
+      )
+      const cmData = await cm.json()
+      if (cmData.ok) botAdminStatus = cmData.result.status
+    }
+  } catch { /* ignore */ }
+
+  // Check existing dedup record for this user (helps explain "not firing again").
+  const dedupKey = `welcome_${bot.botId}_${chat.id}_${user.id}`
+  let dedupInfo = 'tidak ada'
+  try {
+    const dedup = await Counter.findOne({ key: dedupKey })
+    if (dedup) {
+      const ageSec = Math.round((Date.now() - dedup.firstMsg) / 1000)
+      dedupInfo = `aktif (${ageSec}s lalu)`
+    }
+  } catch { /* ignore */ }
+
+  const status = !hasWelcome
+    ? '❌ Fitur welcome BELUM diaktifkan'
+    : isDisabled
+    ? '⚠️ Welcome dinonaktifkan via tombol "Hapus Pesan"'
+    : hasCustom
+    ? '✅ Aktif (pakai pesan custom)'
+    : '✅ Aktif (pakai pesan default)'
+
+  const lines = [
+    '🔍 <b>Welcome Debug</b>',
+    '',
+    `Status: ${status}`,
+    `Chat type: <code>${chat.type}</code>`,
+    `Bot status di grup: <code>${botAdminStatus}</code>`,
+    botAdminStatus !== 'administrator' && botAdminStatus !== 'creator'
+      ? '⚠️ Bot bukan admin → welcome via self-join (link/cari) <b>tidak</b> akan jalan. Welcome via "Tambah Anggota" tetap jalan.'
+      : '✅ Bot admin → welcome jalan untuk semua tipe join.',
+    `Dedup record kamu: ${dedupInfo}`,
+    `enabledFeatures: <code>${features.join(', ') || '(kosong)'}</code>`,
+    '',
+    `<i>Tip: Jika welcome belum jalan saat user pakai link invite, pastikan bot adalah <b>admin</b> di grup ini.</i>`,
   ]
 
   await fetch(`https://api.telegram.org/bot${bot.token}/sendMessage`, {

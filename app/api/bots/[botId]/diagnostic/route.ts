@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import connectDB from '@/lib/mongodb'
 import Bot from '@/lib/models/Bot'
+import { getBaseUrl } from '@/lib/baseUrl'
 
 export const dynamic = 'force-dynamic'
 
@@ -25,7 +26,11 @@ export async function GET(
       return NextResponse.json({ error: 'Bot tidak ditemukan' }, { status: 404 })
     }
 
-    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'https://asisten-seven.vercel.app'
+    const baseUrl = getBaseUrl(request)
+    // Auto-fix mode: when ?autofix=1, repair the webhook silently if it's
+    // missing/wrong instead of just reporting it. Set by the dashboard so
+    // running diagnostic = repair without an extra click.
+    const autoFix = new URL(request.url).searchParams.get('autofix') === '1'
     const results: any = {
       bot: { name: bot.botName, username: bot.botUsername, id: bot.botId },
       checks: [],
@@ -59,14 +64,49 @@ export async function GET(
     const webhookInfoData = await webhookInfoRes.json()
     const currentWebhook = webhookInfoData.result?.url || ''
     const expectedWebhook = `${baseUrl}/api/webhook/${bot.botId}`
-    const webhookMatch = currentWebhook === expectedWebhook
+    let webhookMatch = currentWebhook === expectedWebhook
+    let autoFixed: { ok: boolean; description?: string } | null = null
+
+    // Auto-fix: if dashboard requested ?autofix=1 and webhook is wrong/missing,
+    // call setWebhook with the right URL right here so the user doesn't need a
+    // second click.
+    if (autoFix && !webhookMatch && expectedWebhook) {
+      try {
+        const fixRes = await fetch(`https://api.telegram.org/bot${bot.token}/setWebhook`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            url: expectedWebhook,
+            allowed_updates: ['message', 'callback_query', 'my_chat_member', 'chat_member'],
+          }),
+        })
+        const fixData = await fixRes.json()
+        autoFixed = { ok: !!fixData.ok, description: fixData.description }
+        if (fixData.ok) {
+          bot.webhookUrl = expectedWebhook
+          await bot.save()
+          webhookMatch = true
+        }
+      } catch (e: any) {
+        autoFixed = { ok: false, description: e?.message || 'fix failed' }
+      }
+    }
 
     results.checks.push({
       name: 'Webhook',
       status: webhookMatch ? 'ok' : currentWebhook ? 'warning' : 'error',
-      detail: webhookMatch ? 'Webhook aktif dan benar' : currentWebhook ? `URL tidak sesuai: ${currentWebhook}` : 'Webhook belum diset',
+      detail: autoFixed?.ok
+        ? `Otomatis diperbaiki ke ${expectedWebhook}`
+        : autoFixed && !autoFixed.ok
+        ? `Auto-fix gagal: ${autoFixed.description}`
+        : webhookMatch
+        ? 'Webhook aktif dan benar'
+        : currentWebhook
+        ? `URL tidak sesuai: ${currentWebhook}`
+        : 'Webhook belum diset',
       expected: expectedWebhook,
-      current: currentWebhook,
+      current: webhookMatch ? expectedWebhook : currentWebhook,
+      autoFixed: autoFixed?.ok || undefined,
     })
 
     // 3. Check pending updates
@@ -203,7 +243,7 @@ export async function POST(
       return NextResponse.json({ error: 'Bot tidak ditemukan' }, { status: 404 })
     }
 
-    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'https://asisten-seven.vercel.app'
+    const baseUrl = getBaseUrl(request)
     const webhookUrl = `${baseUrl}/api/webhook/${bot.botId}`
 
     // Set webhook
