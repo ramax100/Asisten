@@ -485,6 +485,14 @@ async function handleSpamDebug(message: any, bot: any) {
 
 // Diagnostic command: reply in-chat with the live welcome-feature state so
 // admins can diagnose why /welcome isn't firing without checking server logs.
+//
+// Reports six layers, top-down (each must pass for welcome to fire):
+//   1. Feature enabled? (`enabledFeatures.includes('welcome')`)
+//   2. Welcome message not disabled? (not `__disabled__`)
+//   3. Bot admin in chat? (required for `chat_member` self-join updates)
+//   4. allowed_updates includes `chat_member`? (else self-join welcome silent)
+//   5. Webhook healthy? (no last_error, no high pending_update_count)
+//   6. Custom welcome message preview (so admin sees what would actually send)
 async function handleWelcomeDebug(message: any, bot: any) {
   const chat = message.chat
   const user = message.from
@@ -503,27 +511,44 @@ async function handleWelcomeDebug(message: any, bot: any) {
   const isDisabled = bot.welcomeMessage === '__disabled__'
   const hasCustom = !!(bot.welcomeMessage && bot.welcomeMessage.trim() && !isDisabled)
 
-  // Check bot admin status — required for chat_member updates (self-join welcome).
+  // Run 3 Telegram API calls in parallel: getMe, getWebhookInfo,
+  // getChatMember(bot). Cuts wait time vs sequential calls.
   let botAdminStatus = '?'
+  let webhookInfo: any = null
   try {
-    const me = await fetch(`https://api.telegram.org/bot${bot.token}/getMe`)
-    const meData = await me.json()
+    const meRes = await fetch(`https://api.telegram.org/bot${bot.token}/getMe`)
+    const meData = await meRes.json()
     if (meData.ok) {
-      const cm = await fetch(
-        `https://api.telegram.org/bot${bot.token}/getChatMember?chat_id=${chat.id}&user_id=${meData.result.id}`
-      )
-      const cmData = await cm.json()
+      const [whRes, cmRes] = await Promise.all([
+        fetch(`https://api.telegram.org/bot${bot.token}/getWebhookInfo`),
+        fetch(`https://api.telegram.org/bot${bot.token}/getChatMember?chat_id=${chat.id}&user_id=${meData.result.id}`),
+      ])
+      const [whData, cmData] = await Promise.all([whRes.json(), cmRes.json()])
       if (cmData.ok) botAdminStatus = cmData.result.status
+      if (whData.ok) webhookInfo = whData.result
     }
-  } catch { /* ignore */ }
+  } catch { /* ignore network errors so the command still replies */ }
 
-  // Check existing dedup record for this user (helps explain "not firing again").
+  // chat_member in allowed_updates is the gating requirement for self-join
+  // (link/search) welcome. Default Telegram allowed_updates does NOT include
+  // chat_member, so the omission is silent until you check this.
+  const allowedUpdates: string[] = webhookInfo?.allowed_updates || []
+  const hasChatMember = allowedUpdates.length === 0
+    ? false // empty array means "default", which excludes chat_member
+    : allowedUpdates.includes('chat_member')
+  const lastError: string = webhookInfo?.last_error_message || ''
+  const lastErrorAge: number = webhookInfo?.last_error_date
+    ? Math.round((Date.now() / 1000) - webhookInfo.last_error_date)
+    : 0
+  const pending: number = webhookInfo?.pending_update_count || 0
+
+  // Existing dedup record for this user (3s window); explains "join again, no welcome".
   const dedupKey = `welcome_${bot.botId}_${chat.id}_${user.id}`
   let dedupInfo = 'tidak ada'
   try {
-    const dedup = await Counter.findOne({ key: dedupKey })
+    const dedup: any = await Counter.findOne({ key: dedupKey })
     if (dedup) {
-      const ageSec = Math.round((Date.now() - dedup.firstMsg) / 1000)
+      const ageSec = Math.round((Date.now() - (dedup.firstMsg || 0)) / 1000)
       dedupInfo = `aktif (${ageSec}s lalu)`
     }
   } catch { /* ignore */ }
@@ -536,19 +561,38 @@ async function handleWelcomeDebug(message: any, bot: any) {
     ? '✅ Aktif (pakai pesan custom)'
     : '✅ Aktif (pakai pesan default)'
 
+  // Preview welcome message - first 120 chars, escaped so HTML in the message
+  // doesn't break this debug message itself.
+  const escapeHtmlLocal = (s: string) =>
+    String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+  const previewSrc = isDisabled
+    ? ''
+    : hasCustom
+    ? bot.welcomeMessage
+    : '👋 Selamat datang {mention} di {group}!'
+  const preview = previewSrc
+    ? escapeHtmlLocal(previewSrc.slice(0, 120)) + (previewSrc.length > 120 ? '...' : '')
+    : '(tidak ada)'
+
   const lines = [
     '🔍 <b>Welcome Debug</b>',
     '',
-    `Status: ${status}`,
-    `Chat type: <code>${chat.type}</code>`,
-    `Bot status di grup: <code>${botAdminStatus}</code>`,
+    `1. Status fitur: ${status}`,
+    `2. Chat type: <code>${chat.type}</code>`,
+    `3. Bot status di grup: <code>${botAdminStatus}</code>`,
     botAdminStatus !== 'administrator' && botAdminStatus !== 'creator'
-      ? '⚠️ Bot bukan admin → welcome via self-join (link/cari) <b>tidak</b> akan jalan. Welcome via "Tambah Anggota" tetap jalan.'
-      : '✅ Bot admin → welcome jalan untuk semua tipe join.',
+      ? '   ⚠️ Bot bukan admin → welcome via self-join (link/cari) <b>tidak</b> akan jalan'
+      : '   ✅ Bot admin → welcome jalan untuk semua tipe join',
+    `4. allowed_updates: <code>${allowedUpdates.join(', ') || '(default)'}</code>`,
+    hasChatMember
+      ? '   ✅ <code>chat_member</code> ada → self-join welcome bisa fire'
+      : '   ❌ <code>chat_member</code> TIDAK di-subscribe → user yang join via link/cari TIDAK akan trigger welcome.\n   Klik <b>"Force Fix Webhook"</b> di dashboard untuk perbaiki.',
+    `5. Webhook last_error: ${lastError ? `❌ <code>${escapeHtmlLocal(lastError).slice(0, 100)}</code> (${lastErrorAge}s lalu)` : '✅ tidak ada'}`,
+    `   Pending updates: <b>${pending}</b>${pending > 50 ? ' ⚠️ webhook lambat/macet' : ''}`,
+    `6. Preview welcome:\n   <code>${preview}</code>`,
+    '',
     `Dedup record kamu: ${dedupInfo}`,
     `enabledFeatures: <code>${features.join(', ') || '(kosong)'}</code>`,
-    '',
-    `<i>Tip: Jika welcome belum jalan saat user pakai link invite, pastikan bot adalah <b>admin</b> di grup ini.</i>`,
   ]
 
   await fetch(`https://api.telegram.org/bot${bot.token}/sendMessage`, {
