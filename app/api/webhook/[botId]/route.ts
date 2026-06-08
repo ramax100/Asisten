@@ -67,6 +67,9 @@ export async function POST(
       } else if (msgText.match(/^\/spamdebug/i)) {
         // Diagnostic command: report live anti-spam state in-chat
         await handleSpamDebug(update.message, bot)
+      } else if (msgText.match(/^\/welcomedebug/i)) {
+        // Diagnostic command: report live welcome state + send a test welcome
+        await handleWelcomeDebug(update.message, bot)
       } else if (msgText.match(/^\/(mute|unmute|kick|ban|unban)/i)) {
         // Handle moderation commands - skip force join check
         await handleCommand(update.message, bot)
@@ -410,6 +413,51 @@ async function handleSpamDebug(message: any, bot: any) {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ chat_id: chat.id, text: lines.join('\n'), parse_mode: 'HTML' }),
   })
+}
+
+// Diagnostic command: report live welcome-message state in-chat and send a
+// test welcome to the sender so issues can be diagnosed without server logs.
+async function handleWelcomeDebug(message: any, bot: any) {
+  const chat = message.chat
+  const user = message.from
+  if (!user) return
+  if (chat.type !== 'group' && chat.type !== 'supergroup') {
+    await fetch(`https://api.telegram.org/bot${bot.token}/sendMessage`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ chat_id: chat.id, text: '⚠️ /welcomedebug hanya bekerja di dalam grup.' }),
+    })
+    return
+  }
+
+  const features = bot.enabledFeatures || []
+  const enabled = features.includes('welcome')
+  const wm = bot.welcomeMessage
+  const status = wm === '__disabled__' ? 'NONAKTIF (__disabled__)' : wm ? 'Custom' : 'Default'
+
+  const lines = [
+    '🔍 <b>Welcome Debug</b>',
+    '',
+    `Chat type: <code>${chat.type}</code>`,
+    `Fitur welcome aktif: ${enabled ? '✅ YA' : '❌ TIDAK (tambahkan fitur Welcome)'}`,
+    `Status pesan: <b>${status}</b>`,
+    `enabledFeatures: <code>${features.join(', ') || '(kosong)'}</code>`,
+    '',
+    enabled && wm !== '__disabled__'
+      ? 'Mengirim contoh welcome untukmu sekarang... 👇'
+      : 'Welcome TIDAK akan terkirim ke member baru karena kondisi di atas.',
+  ]
+
+  await fetch(`https://api.telegram.org/bot${bot.token}/sendMessage`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ chat_id: chat.id, text: lines.join('\n'), parse_mode: 'HTML' }),
+  })
+
+  // Actually trigger the welcome flow as if this user just joined.
+  if (enabled && wm !== '__disabled__') {
+    await handleNewMembers({ chat, new_chat_members: [user] }, bot)
+  }
 }
 
 // Handle incoming messages
