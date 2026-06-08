@@ -19,6 +19,8 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true)
   const [showAddBot, setShowAddBot] = useState(false)
   const [newToken, setNewToken] = useState('')
+  const [newChannel, setNewChannel] = useState('')
+  const [newGroup, setNewGroup] = useState('')
   const [addLoading, setAddLoading] = useState(false)
   const [error, setError] = useState('')
   const router = useRouter()
@@ -39,9 +41,9 @@ export default function DashboardPage() {
   const handleAddBot = async (e: React.FormEvent) => {
     e.preventDefault(); setAddLoading(true); setError('')
     try {
-      const res = await fetch('/api/bots', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ token: newToken }) })
+      const res = await fetch('/api/bots', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ token: newToken, channelUsername: newChannel, groupId: newGroup }) })
       const data = await res.json()
-      if (res.ok) { setShowAddBot(false); setNewToken(''); fetchBots() } else { setError(data.error || 'Gagal') }
+      if (res.ok) { setShowAddBot(false); setNewToken(''); setNewChannel(''); setNewGroup(''); fetchBots() } else { setError(data.error || 'Gagal') }
     } catch (err) { setError('Gagal menghubungi server') }
     finally { setAddLoading(false) }
   }
@@ -160,12 +162,22 @@ export default function DashboardPage() {
           <div className="fixed inset-0 bg-black/30 flex items-center justify-center z-50 px-4">
             <div className="bg-white rounded-2xl p-6 w-full max-w-sm border border-slate-200 shadow-xl">
               <h3 className="text-sm font-bold text-slate-800 mb-1">Tambah Bot Baru</h3>
-              <p className="text-xs text-slate-500 mb-4">Paste token dari @BotFather</p>
+              <p className="text-xs text-slate-500 mb-4">Paste token dari @BotFather. Channel & grup opsional (bisa diisi nanti).</p>
               <form onSubmit={handleAddBot}>
-                <input type="text" value={newToken} onChange={(e) => setNewToken(e.target.value)} placeholder="123456789:ABCdefGHI..." className="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl text-sm bg-slate-50 focus:outline-none focus:ring-2 focus:ring-indigo-500 mb-3" required />
+                <label className="block text-[10px] font-semibold text-slate-400 uppercase tracking-wide mb-1">Token BotFather *</label>
+                <input type="text" value={newToken} onChange={(e) => setNewToken(e.target.value)} placeholder="123456789:ABCdefGHI..." className="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl text-sm bg-slate-50 focus:outline-none focus:ring-2 focus:ring-indigo-500 mb-3 font-mono" required />
+
+                <label className="block text-[10px] font-semibold text-slate-400 uppercase tracking-wide mb-1">Channel Telegram (opsional)</label>
+                <input type="text" value={newChannel} onChange={(e) => setNewChannel(e.target.value)} placeholder="@usernamechannel" className="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl text-sm bg-slate-50 focus:outline-none focus:ring-2 focus:ring-indigo-500 mb-1" />
+                <p className="text-[10px] text-slate-400 mb-3">Bot harus jadi admin di channel. Mengaktifkan Force Join otomatis.</p>
+
+                <label className="block text-[10px] font-semibold text-slate-400 uppercase tracking-wide mb-1">Grup Telegram / ID (opsional)</label>
+                <input type="text" value={newGroup} onChange={(e) => setNewGroup(e.target.value)} placeholder="-1001234567890" className="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl text-sm bg-slate-50 focus:outline-none focus:ring-2 focus:ring-indigo-500 mb-1 font-mono" />
+                <p className="text-[10px] text-slate-400 mb-3">Bot harus sudah ada di grup. Dapatkan ID dari <a href="https://t.me/getidsbot" target="_blank" className="text-indigo-500 hover:underline">@getidsbot</a>.</p>
+
                 {error && <p className="text-red-500 text-xs mb-3">{error}</p>}
                 <div className="flex gap-2">
-                  <button type="button" onClick={() => { setShowAddBot(false); setError('') }} className="flex-1 py-2.5 text-sm text-slate-600 border border-slate-200 rounded-xl hover:bg-slate-50">Batal</button>
+                  <button type="button" onClick={() => { setShowAddBot(false); setError(''); setNewChannel(''); setNewGroup('') }} className="flex-1 py-2.5 text-sm text-slate-600 border border-slate-200 rounded-xl hover:bg-slate-50">Batal</button>
                   <button type="submit" disabled={addLoading} className="flex-1 py-2.5 text-sm text-white bg-indigo-600 hover:bg-indigo-700 disabled:bg-slate-300 rounded-xl">{addLoading ? '...' : 'Tambah'}</button>
                 </div>
               </form>

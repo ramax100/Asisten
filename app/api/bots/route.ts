@@ -34,6 +34,9 @@ export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
     const token = body.token?.trim()
+    // Optional: set a force-join channel and/or a group right at creation time
+    const channelUsername = (body.channelUsername || '').trim()
+    const groupId = (body.groupId || '').trim()
 
     if (!token) {
       return NextResponse.json({ error: 'Token diperlukan' }, { status: 400 })
@@ -60,14 +63,54 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Bot sudah terdaftar' }, { status: 400 })
     }
 
-    // Create new bot
+    // Optionally validate & resolve the channel (force join)
+    const channels: { channelId: string; channelUsername: string; channelTitle: string }[] = []
+    if (channelUsername) {
+      const cleanUsername = channelUsername.replace('@', '')
+      const chatRes = await fetch(`https://api.telegram.org/bot${token}/getChat?chat_id=@${cleanUsername}`)
+      const chatData = await chatRes.json()
+      if (!chatData.ok) {
+        return NextResponse.json(
+          { error: 'Channel tidak ditemukan. Pastikan bot sudah ditambahkan ke channel sebagai admin (atau kosongkan field channel).' },
+          { status: 400 }
+        )
+      }
+      const chat = chatData.result
+      channels.push({
+        channelId: String(chat.id),
+        channelUsername: chat.username || '',
+        channelTitle: chat.title,
+      })
+    }
+
+    // Optionally validate & resolve the group
+    const groups: { groupId: string; groupTitle: string }[] = []
+    if (groupId) {
+      const chatRes = await fetch(`https://api.telegram.org/bot${token}/getChat?chat_id=${groupId}`)
+      const chatData = await chatRes.json()
+      if (!chatData.ok) {
+        return NextResponse.json(
+          { error: 'Grup tidak ditemukan. Pastikan bot sudah ditambahkan sebagai admin di grup (atau kosongkan field grup).' },
+          { status: 400 }
+        )
+      }
+      const chat = chatData.result
+      if (chat.type !== 'group' && chat.type !== 'supergroup') {
+        return NextResponse.json({ error: 'ID yang dimasukkan bukan grup' }, { status: 400 })
+      }
+      groups.push({ groupId: String(chat.id), groupTitle: chat.title })
+    }
+
+    // Create new bot. If a channel was provided, auto-enable the force_join feature.
+    const enabledFeatures = channels.length > 0 ? ['force_join'] : []
     const bot = await Bot.create({
       token,
       botId: String(botInfo.id),
       botUsername: botInfo.username,
       botName: botInfo.first_name,
-      channels: [],
-      groups: [],
+      channels,
+      groups,
+      enabledFeatures,
     })
 
     return NextResponse.json({

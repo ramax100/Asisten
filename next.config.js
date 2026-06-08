@@ -24,3 +24,4 @@ module.exports = nextConfig
 // redeploy: dukung kirim foto via upload di Kirim Pesan
 // redeploy: sapaan 4 slot via webhook activity + dedup tahan seharian
 // redeploy: fitur hapus bot
+// redeploy: form buat bot dengan channel & grup opsional
