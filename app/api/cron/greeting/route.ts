@@ -79,8 +79,24 @@ export async function GET(request: NextRequest) {
       // Skip if disabled
       if (greetingMessage === '__disabled__') continue
 
-      // Use custom or default message
-      const text = greetingMessage || getDefaultGreeting(greetingType)
+      // Custom variations added via the dashboard panel, if any
+      const templatesMap: Record<string, string[]> = {
+        pagi: bot.greetingTemplatesPagi || [],
+        siang: bot.greetingTemplatesSiang || [],
+        sore: bot.greetingTemplatesSore || [],
+        malam: bot.greetingTemplatesMalam || [],
+      }
+      const customTemplates = (templatesMap[greetingType] || []).filter((t: string) => t && t.trim())
+
+      // Priority: custom variations (random) -> single custom message -> 3 default variations (random)
+      let text: string
+      if (customTemplates.length > 0) {
+        text = customTemplates[Math.floor(Math.random() * customTemplates.length)]
+      } else if (greetingMessage) {
+        text = greetingMessage
+      } else {
+        text = getDefaultGreeting(greetingType)
+      }
 
       // Send to each group (but only ONCE per group per time slot per day)
       for (const group of bot.groups) {

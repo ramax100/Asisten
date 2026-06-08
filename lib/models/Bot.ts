@@ -52,6 +52,11 @@ const BotSchema = new Schema<IBot>(
     greetingSiang: { type: String, default: '' },
     greetingSore: { type: String, default: '' },
     greetingMalam: { type: String, default: '' },
+    // Multiple random text variations per time slot (added via dashboard panel).
+    greetingTemplatesPagi: { type: [String], default: [] },
+    greetingTemplatesSiang: { type: [String], default: [] },
+    greetingTemplatesSore: { type: [String], default: [] },
+    greetingTemplatesMalam: { type: [String], default: [] },
     bannedWords: [{ type: String }],
     bannedWordsAction: { type: String, default: 'delete_warn' },
     bannedWordsMessage: { type: String, default: '' },

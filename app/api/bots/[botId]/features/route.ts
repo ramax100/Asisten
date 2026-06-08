@@ -18,7 +18,7 @@ export async function PATCH(
   }
 
   try {
-    const { feature, enabled, message, featureId } = await request.json()
+    const { feature, enabled, message, featureId, text, index } = await request.json()
 
     await connectDB()
     const bot = await Bot.findOne({ botId: params.botId })
@@ -52,6 +52,25 @@ export async function PATCH(
       bot.greetingSore = message || ''
     } else if (feature === 'greeting_malam') {
       bot.greetingMalam = message || ''
+    } else if (feature === 'greeting_template_add') {
+      // Add a variation: { message: waktu, text }
+      const fieldName = `greetingTemplates${message.charAt(0).toUpperCase() + message.slice(1)}`
+      if (text && text.trim()) {
+        if (!(bot as any)[fieldName]) (bot as any)[fieldName] = []
+        ;(bot as any)[fieldName].push(text.trim())
+      }
+    } else if (feature === 'greeting_template_update') {
+      // Update a variation by index: { message: waktu, index, text }
+      const fieldName = `greetingTemplates${message.charAt(0).toUpperCase() + message.slice(1)}`
+      if ((bot as any)[fieldName] && index >= 0 && index < (bot as any)[fieldName].length && text && text.trim()) {
+        ;(bot as any)[fieldName][index] = text.trim()
+      }
+    } else if (feature === 'greeting_template_remove') {
+      // Remove a variation by index: { message: waktu, index }
+      const fieldName = `greetingTemplates${message.charAt(0).toUpperCase() + message.slice(1)}`
+      if ((bot as any)[fieldName] && index >= 0 && index < (bot as any)[fieldName].length) {
+        ;(bot as any)[fieldName].splice(index, 1)
+      }
     } else if (feature === 'banned_words') {
       if (message !== undefined) bot.bannedWords = message.split(',').map((w: string) => w.trim()).filter(Boolean)
     } else if (feature === 'banned_words_action') {
@@ -126,6 +145,10 @@ export async function DELETE(
       bot.greetingSiang = ''
       bot.greetingSore = ''
       bot.greetingMalam = ''
+      bot.greetingTemplatesPagi = []
+      bot.greetingTemplatesSiang = []
+      bot.greetingTemplatesSore = []
+      bot.greetingTemplatesMalam = []
     } else if (feature === 'banned_words') {
       bot.bannedWords = []
       bot.bannedWordsAction = 'delete_warn'

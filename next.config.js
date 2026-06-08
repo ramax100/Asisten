@@ -17,3 +17,4 @@ module.exports = nextConfig
 // redeploy: anti-spam sliding window (fix oscillating counter)
 // redeploy: optimize anti-spam latency (fewer DB ops + parallel mute)
 // redeploy: 3 variasi acak sapaan otomatis pagi/siang/sore/malam
+// redeploy: panel multi-variasi sapaan (tampil 3 default + bisa tambah)
