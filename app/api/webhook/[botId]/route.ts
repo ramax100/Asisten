@@ -8,45 +8,6 @@ import { handleCommand } from './handleCommand'
 
 export const dynamic = 'force-dynamic'
 
-// Build marker - bump when deploying so we can confirm which version is live.
-const WEBHOOK_VERSION = 'v3-welcome-2026-06-08'
-
-// GET - open this URL in a browser to confirm the LIVE deployed version and
-// the bot's actual webhook + welcome config (no Telegram/Vercel dashboard needed).
-export async function GET(
-  request: NextRequest,
-  { params }: { params: { botId: string } }
-) {
-  try {
-    await connectDB()
-    const bot = await Bot.findOne({ botId: params.botId })
-    let webhookInfo: any = null
-    if (bot?.token) {
-      try {
-        const r = await fetch(`https://api.telegram.org/bot${bot.token}/getWebhookInfo`)
-        const d = await r.json()
-        if (d.ok) webhookInfo = d.result
-      } catch { /* ignore */ }
-    }
-    return NextResponse.json({
-      version: WEBHOOK_VERSION,
-      botFound: !!bot,
-      botUsername: bot?.botUsername || null,
-      isActive: bot?.isActive ?? null,
-      enabledFeatures: bot?.enabledFeatures || [],
-      welcomeEnabled: (bot?.enabledFeatures || []).includes('welcome'),
-      welcomeMessageStatus:
-        bot?.welcomeMessage === '__disabled__' ? 'disabled' : bot?.welcomeMessage ? 'custom' : 'default',
-      telegramWebhookUrl: webhookInfo?.url || null,
-      telegramPendingUpdates: webhookInfo?.pending_update_count ?? null,
-      telegramLastError: webhookInfo?.last_error_message || null,
-      telegramAllowedUpdates: webhookInfo?.allowed_updates || 'default (all except chat_member)',
-    })
-  } catch (e: any) {
-    return NextResponse.json({ version: WEBHOOK_VERSION, error: e?.message || 'error' }, { status: 500 })
-  }
-}
-
 // Opportunistic greeting: fire the current time-slot greeting on the first
 // group activity of that slot. Makes all 4 slots (pagi/siang/sore/malam) work
 // automatically without depending on an hourly external cron. Dedup shares the
@@ -106,9 +67,6 @@ export async function POST(
       } else if (msgText.match(/^\/spamdebug/i)) {
         // Diagnostic command: report live anti-spam state in-chat
         await handleSpamDebug(update.message, bot)
-      } else if (msgText.match(/^\/welcomedebug/i)) {
-        // Diagnostic command: report live welcome state + send a test welcome
-        await handleWelcomeDebug(update.message, bot)
       } else if (msgText.match(/^\/(mute|unmute|kick|ban|unban)/i)) {
         // Handle moderation commands - skip force join check
         await handleCommand(update.message, bot)
@@ -231,48 +189,37 @@ function escapeHtml(s: string): string {
     .replace(/>/g, '&gt;')
 }
 
-// Handle new members joining the group
+// Handle new members joining the group → send welcome message
 async function handleNewMembers(message: any, bot: any) {
   const chat = message.chat
-  const newMembers = message.new_chat_members
+  const newMembers = message.new_chat_members || []
 
-  // Skip if welcome is not enabled
-  if (!bot.enabledFeatures || !bot.enabledFeatures.includes('welcome')) {
-    return
-  }
+  // Only groups
+  if (chat.type !== 'group' && chat.type !== 'supergroup') return
 
-  // Skip if welcome message is disabled
-  if (bot.welcomeMessage === '__disabled__') {
-    return
-  }
-
-  // Only process group messages
-  if (chat.type !== 'group' && chat.type !== 'supergroup') {
-    return
-  }
+  // Feature must be enabled and not disabled
+  if (!bot.enabledFeatures || !bot.enabledFeatures.includes('welcome')) return
+  if (bot.welcomeMessage === '__disabled__') return
 
   for (const member of newMembers) {
-    // Skip bots
     if (member.is_bot) continue
 
-    // HTML-escape dynamic values. Without this, a member name or group title
-    // containing <, > or & makes Telegram reject the HTML message and the
-    // welcome silently fails (this was the bug).
-    const rawName = member.first_name || 'User'
-    const userName = escapeHtml(rawName)
+    const name = escapeHtml(member.first_name || 'User')
+    const username = member.username ? `@${escapeHtml(member.username)}` : name
     const groupTitle = escapeHtml(chat.title || 'grup')
-    const usernameStr = member.username ? `@${escapeHtml(member.username)}` : userName
-    const mention = `<a href="tg://user?id=${member.id}">${userName}</a>`
+    const mention = `<a href="tg://user?id=${member.id}">${name}</a>`
 
-    let text = bot.welcomeMessage || `👋 Selamat datang <b>${userName}</b> di grup <b>${groupTitle}</b>!\n\nSilakan baca rules dan perkenalkan dirimu.`
+    // Build text from custom template or default
+    let text = bot.welcomeMessage && bot.welcomeMessage.trim()
+      ? bot.welcomeMessage
+      : `👋 Selamat datang {mention} di <b>{group}</b>!\n\nSilakan baca peraturan grup ya.`
 
-    // Replace variables
-    text = text.replace(/{mention}/g, mention)
-    text = text.replace(/{name}/g, userName)
-    text = text.replace(/{username}/g, usernameStr)
-    text = text.replace(/{id}/g, String(member.id))
-    text = text.replace(/{user}/g, `<b>${usernameStr}</b>`)
-    text = text.replace(/{group}/g, groupTitle)
+    text = text
+      .replace(/{mention}/g, mention)
+      .replace(/{name}/g, name)
+      .replace(/{username}/g, username)
+      .replace(/{id}/g, String(member.id))
+      .replace(/{group}/g, groupTitle)
 
     try {
       const res = await fetch(`https://api.telegram.org/bot${bot.token}/sendMessage`, {
@@ -281,10 +228,8 @@ async function handleNewMembers(message: any, bot: any) {
         body: JSON.stringify({ chat_id: chat.id, text, parse_mode: 'HTML' }),
       })
       const data = await res.json()
+      // If HTML parse failed (e.g. bad custom tags), retry as plain text.
       if (!data.ok) {
-        console.error('Welcome message failed:', data.description)
-        // Fallback: resend without HTML parsing so a bad custom template
-        // (malformed tags) still delivers a plain-text welcome.
         await fetch(`https://api.telegram.org/bot${bot.token}/sendMessage`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -292,7 +237,7 @@ async function handleNewMembers(message: any, bot: any) {
         })
       }
     } catch (error) {
-      console.error('Welcome message error:', error)
+      console.error('Welcome error:', error)
     }
   }
 }
@@ -452,83 +397,6 @@ async function handleSpamDebug(message: any, bot: any) {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ chat_id: chat.id, text: lines.join('\n'), parse_mode: 'HTML' }),
   })
-}
-
-// Diagnostic command: report live welcome-message state in-chat and send a
-// test welcome to the sender so issues can be diagnosed without server logs.
-async function handleWelcomeDebug(message: any, bot: any) {
-  const chat = message.chat
-  const user = message.from
-  if (!user) return
-  if (chat.type !== 'group' && chat.type !== 'supergroup') {
-    await fetch(`https://api.telegram.org/bot${bot.token}/sendMessage`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ chat_id: chat.id, text: '⚠️ /welcomedebug hanya bekerja di dalam grup.' }),
-    })
-    return
-  }
-
-  const features = bot.enabledFeatures || []
-  const enabled = features.includes('welcome')
-  const wm = bot.welcomeMessage
-  const status = wm === '__disabled__' ? 'NONAKTIF (__disabled__)' : wm ? 'Custom' : 'Default'
-
-  const lines = [
-    '🔍 <b>Welcome Debug</b> <code>v3</code>',
-    '',
-    `Chat type: <code>${chat.type}</code>`,
-    `Fitur welcome aktif: ${enabled ? '✅ YA' : '❌ TIDAK (tambahkan fitur Welcome)'}`,
-    `Status pesan: <b>${status}</b>`,
-    `enabledFeatures: <code>${features.join(', ') || '(kosong)'}</code>`,
-    '',
-    enabled && wm !== '__disabled__'
-      ? 'Menguji kirim welcome... lihat hasil di bawah 👇'
-      : 'Welcome TIDAK akan terkirim ke member baru karena kondisi di atas.',
-  ]
-
-  await fetch(`https://api.telegram.org/bot${bot.token}/sendMessage`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ chat_id: chat.id, text: lines.join('\n'), parse_mode: 'HTML' }),
-  })
-
-  // Actually attempt the welcome send and report Telegram's raw response so we
-  // can see the real error instead of guessing.
-  if (enabled && wm !== '__disabled__') {
-    const userName = escapeHtml(user.first_name || 'User')
-    const groupTitle = escapeHtml(chat.title || 'grup')
-    const mention = `<a href="tg://user?id=${user.id}">${userName}</a>`
-    let text = wm || `👋 Selamat datang <b>${userName}</b> di grup <b>${groupTitle}</b>!\n\nSilakan baca rules dan perkenalkan dirimu.`
-    text = text
-      .replace(/{mention}/g, mention)
-      .replace(/{name}/g, userName)
-      .replace(/{username}/g, user.username ? `@${escapeHtml(user.username)}` : userName)
-      .replace(/{id}/g, String(user.id))
-      .replace(/{user}/g, `<b>${userName}</b>`)
-      .replace(/{group}/g, groupTitle)
-
-    let report: string
-    try {
-      const res = await fetch(`https://api.telegram.org/bot${bot.token}/sendMessage`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ chat_id: chat.id, text, parse_mode: 'HTML' }),
-      })
-      const data = await res.json()
-      report = data.ok
-        ? '✅ Welcome BERHASIL dikirim (lihat pesan di atas).'
-        : `❌ Welcome GAGAL. Telegram: <code>${escapeHtml(data.description || 'unknown')}</code>`
-    } catch (e: any) {
-      report = `❌ Welcome error jaringan: <code>${escapeHtml(e?.message || 'unknown')}</code>`
-    }
-
-    await fetch(`https://api.telegram.org/bot${bot.token}/sendMessage`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ chat_id: chat.id, text: report, parse_mode: 'HTML' }),
-    })
-  }
 }
 
 // Handle incoming messages
