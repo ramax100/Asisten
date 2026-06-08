@@ -436,7 +436,7 @@ async function handleWelcomeDebug(message: any, bot: any) {
   const status = wm === '__disabled__' ? 'NONAKTIF (__disabled__)' : wm ? 'Custom' : 'Default'
 
   const lines = [
-    '🔍 <b>Welcome Debug</b>',
+    '🔍 <b>Welcome Debug</b> <code>v3</code>',
     '',
     `Chat type: <code>${chat.type}</code>`,
     `Fitur welcome aktif: ${enabled ? '✅ YA' : '❌ TIDAK (tambahkan fitur Welcome)'}`,
@@ -444,7 +444,7 @@ async function handleWelcomeDebug(message: any, bot: any) {
     `enabledFeatures: <code>${features.join(', ') || '(kosong)'}</code>`,
     '',
     enabled && wm !== '__disabled__'
-      ? 'Mengirim contoh welcome untukmu sekarang... 👇'
+      ? 'Menguji kirim welcome... lihat hasil di bawah 👇'
       : 'Welcome TIDAK akan terkirim ke member baru karena kondisi di atas.',
   ]
 
