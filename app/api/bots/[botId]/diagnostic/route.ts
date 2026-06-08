@@ -111,6 +111,48 @@ export async function GET(
       })
     }
 
+    // 7. Anti-spam configuration
+    const antiSpamActive = bot.antiSpamEnabled === true || (bot.enabledFeatures || []).includes('anti_spam')
+    results.checks.push({
+      name: 'Anti-Spam Config',
+      status: antiSpamActive ? 'ok' : 'error',
+      detail: antiSpamActive
+        ? `Aktif: mute jika ≥${bot.antiSpamLimit || 5} pesan dalam ${bot.antiSpamInterval || 10} detik (mute ${bot.antiSpamMuteDuration || '5m'})`
+        : 'Anti-spam TIDAK aktif (antiSpamEnabled=false & tidak ada di enabledFeatures)',
+    })
+
+    // 7b. Warn if window is too tight to realistically reach the limit
+    if (antiSpamActive && (bot.antiSpamInterval || 10) <= 2) {
+      results.checks.push({
+        name: 'Anti-Spam Window',
+        status: 'warning',
+        detail: `Interval ${bot.antiSpamInterval}s sangat ketat - sulit mengirim ${bot.antiSpamLimit || 5} pesan secepat itu. Disarankan minimal 5 detik.`,
+      })
+    }
+
+    // 8. Bot must be admin WITH "Restrict members" permission in each group to mute
+    const tgBotId = getMeData.ok ? getMeData.result.id : Number(String(bot.token).split(':')[0])
+    for (const group of bot.groups) {
+      try {
+        const res = await fetch(`https://api.telegram.org/bot${bot.token}/getChatMember?chat_id=${group.groupId}&user_id=${tgBotId}`)
+        const data = await res.json()
+        if (data.ok) {
+          const status = data.result.status
+          const canRestrict = data.result.can_restrict_members === true
+          const isAdmin = status === 'administrator' || status === 'creator'
+          results.checks.push({
+            name: `Izin Mute: ${group.groupTitle}`,
+            status: isAdmin && canRestrict ? 'ok' : 'error',
+            detail: !isAdmin
+              ? 'Bot BUKAN admin di grup ini'
+              : canRestrict
+                ? 'Bot admin & bisa restrict members'
+                : 'Bot admin TAPI tidak punya izin "Restrict members" - mute akan gagal',
+          })
+        }
+      } catch { /* ignore */ }
+    }
+
     return NextResponse.json(results)
   } catch (error: any) {
     return NextResponse.json({ error: 'Terjadi kesalahan: ' + (error?.message || 'unknown') }, { status: 500 })

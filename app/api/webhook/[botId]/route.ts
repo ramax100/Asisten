@@ -247,8 +247,13 @@ async function resetCounter(key: string) {
 // that must accumulate state across rapid messages, which is exactly when the
 // race bites - hence other mute features work but anti-spam didn't.
 // Using an atomic $inc upsert guarantees every message is counted.
-async function incrementWindowedCounter(key: string, intervalMs: number): Promise<number> {
-  const now = Date.now()
+//
+// `nowMs` MUST be the message SEND time (Telegram message.date), not the server
+// processing time. Serverless processing delays (cold start, DB latency) can
+// exceed a short window like 1s, which would otherwise reset the window on every
+// message and prevent the limit from ever being reached.
+async function incrementWindowedCounter(key: string, intervalMs: number, nowMs: number): Promise<number> {
+  const now = nowMs
   try {
     // Atomic increment; initialise firstMsg only when the document is created.
     const doc = await Counter.findOneAndUpdate(
@@ -442,8 +447,10 @@ async function handleMessage(message: any, bot: any) {
     const intervalMs = (bot.antiSpamInterval || 10) * 1000
     const limit = bot.antiSpamLimit || 5
 
-    // Atomic increment - reliable under concurrent serverless invocations
-    const newCount = await incrementWindowedCounter(key, intervalMs)
+    // Window is measured by message SEND time (Telegram message.date, in seconds),
+    // not server processing time, so serverless delays don't reset the window.
+    const sentAtMs = message.date ? message.date * 1000 : Date.now()
+    const newCount = await incrementWindowedCounter(key, intervalMs, sentAtMs)
 
     // Use >= so a limit of N mutes exactly on the Nth message (matches the UI
     // "Batas pesan = N"). Previously used > which required N+1 messages, so with
