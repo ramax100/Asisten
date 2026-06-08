@@ -202,18 +202,24 @@ async function sendWelcome(chat: any, member: any, bot: any) {
   if (bot.welcomeMessage === '__disabled__') return
 
   // Cross-bot dedup: when several bots share a group, only ONE should send
-  // welcome per join. Use an atomic findOneAndUpdate with $setOnInsert so the
-  // first invocation reserves the key; everyone else sees the existing doc
-  // and returns without sending.
+  // welcome per join. Telegram delivers both new_chat_members AND chat_member
+  // for the same join (within ~1 second), so we just need a short window to
+  // collapse those duplicates - NOT to block the user from being welcomed
+  // again when they rejoin later.
   const dedupKey = `welcome_${chat.id}_${member.id}`
+  const DEDUP_WINDOW_MS = 30 * 1000
   try {
     const existing: any = await Counter.findOneAndUpdate(
       { key: dedupKey },
       { $setOnInsert: { key: dedupKey, count: 1, firstMsg: Date.now() } },
       { upsert: true, new: false }
     )
-    // Existing doc found AND fresh -> another bot already greeted this member.
-    if (existing && Date.now() - (existing.firstMsg || 0) < 120000) return
+    if (existing && Date.now() - (existing.firstMsg || 0) < DEDUP_WINDOW_MS) return
+    // Stale doc (older than the dedup window) - refresh firstMsg so subsequent
+    // duplicate events from THIS join are still suppressed by the same window.
+    if (existing) {
+      await Counter.updateOne({ key: dedupKey }, { $set: { firstMsg: Date.now() } })
+    }
   } catch { /* if dedup fails, still proceed to send */ }
 
   const name = escapeHtml(member.first_name || 'User')
@@ -300,6 +306,16 @@ async function handleChatMemberUpdate(update: any, bot: any) {
 
   if (wasOutside && nowInside) {
     await sendWelcome(update.chat, member, bot)
+    return
+  }
+
+  // User left/was-kicked -> clear welcome dedup so the next join is welcomed
+  // again straight away (otherwise the 30s dedup might block a quick rejoin).
+  const nowOutside = newStatus === 'left' || newStatus === 'kicked'
+  if (!wasOutside && nowOutside && member) {
+    try {
+      await Counter.deleteOne({ key: `welcome_${update.chat.id}_${member.id}` })
+    } catch { /* best effort */ }
   }
 }
 
