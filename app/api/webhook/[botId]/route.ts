@@ -27,6 +27,9 @@ export async function POST(
       // Check for new member join
       if (update.message.new_chat_members) {
         await handleNewMembers(update.message, bot)
+      } else if (msgText.match(/^\/spamdebug/i)) {
+        // Diagnostic command: report live anti-spam state in-chat
+        await handleSpamDebug(update.message, bot)
       } else if (msgText.match(/^\/(mute|unmute|kick|ban|unban)/i)) {
         // Handle moderation commands - skip force join check
         await handleCommand(update.message, bot)
@@ -307,6 +310,49 @@ async function muteUser(
     console.error('muteUser error:', e?.message)
     return { ok: false, description: e?.message }
   }
+}
+
+// Diagnostic command: reply in-chat with the live anti-spam state so issues
+// can be diagnosed without access to server logs.
+async function handleSpamDebug(message: any, bot: any) {
+  const chat = message.chat
+  const user = message.from
+  if (!user) return
+  if (chat.type !== 'group' && chat.type !== 'supergroup') {
+    await fetch(`https://api.telegram.org/bot${bot.token}/sendMessage`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ chat_id: chat.id, text: '⚠️ /spamdebug hanya bekerja di dalam grup.' }),
+    })
+    return
+  }
+
+  const isAdmin = await checkIfAdmin(bot.token, chat.id, user.id)
+  const features = bot.enabledFeatures || []
+  const hasAntiSpam = bot.antiSpamEnabled === true || features.includes('anti_spam')
+
+  const key = `${chat.id}_${user.id}_spam`
+  const c = await getCounter(key)
+  const sinceSec = c.firstMsg ? Math.round((Date.now() - c.firstMsg) / 1000) : 0
+
+  const lines = [
+    '🔍 <b>Anti-Spam Debug</b>',
+    '',
+    `Chat type: <code>${chat.type}</code>`,
+    `Anti-spam aktif: ${hasAntiSpam ? '✅ YA' : '❌ TIDAK'}`,
+    `Kamu admin: ${isAdmin ? '⚠️ YA → anti-spam DILEWATI untuk admin!' : 'TIDAK (akan dicek)'}`,
+    `Batas: <b>${bot.antiSpamLimit || 5}</b> pesan dalam <b>${bot.antiSpamInterval || 10}</b> detik`,
+    `Durasi mute: ${bot.antiSpamMuteDuration || '5m'}`,
+    `Counter kamu sekarang: <b>${c.count}</b> (window dimulai ${sinceSec}s lalu)`,
+    `enabledFeatures: <code>${features.join(', ') || '(kosong)'}</code>`,
+    `antiSpamEnabled flag: <code>${String(bot.antiSpamEnabled)}</code>`,
+  ]
+
+  await fetch(`https://api.telegram.org/bot${bot.token}/sendMessage`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ chat_id: chat.id, text: lines.join('\n'), parse_mode: 'HTML' }),
+  })
 }
 
 // Handle incoming messages
