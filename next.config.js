@@ -16,3 +16,4 @@ module.exports = nextConfig
 // redeploy: add /spamdebug command + anti-spam send-time window
 // redeploy: anti-spam sliding window (fix oscillating counter)
 // redeploy: optimize anti-spam latency (fewer DB ops + parallel mute)
+// redeploy: 3 variasi acak sapaan otomatis pagi/siang/sore/malam

@@ -16,14 +16,33 @@ function getGreetingType(): string {
   return 'malam'
 }
 
+// 3 variasi teks per waktu - dipilih secara acak setiap kali sapaan dikirim.
+const DEFAULT_GREETINGS: Record<string, string[]> = {
+  pagi: [
+    '🌅 Selamat pagi semuanya! Semoga hari ini penuh berkah dan semangat. 💪',
+    '☕ Pagi! Awali harimu dengan senyuman dan semangat baru ya. 😊',
+    '🌞 Selamat pagi! Semoga harimu lancar dan menyenangkan. Tetap semangat! 🔥',
+  ],
+  siang: [
+    '☀️ Selamat siang! Jangan lupa istirahat dan makan siang ya. 🍽️',
+    '🥗 Siang semuanya! Sudah makan belum? Jangan sampai telat ya. 😋',
+    '🌤️ Selamat siang! Semangat terus menjalani aktivitas hari ini. 💼',
+  ],
+  sore: [
+    '🌇 Selamat sore! Semoga aktivitas hari ini berjalan lancar. 🙏',
+    '🍵 Sore semuanya! Waktunya rehat sejenak dan ngeteh dulu. ☕',
+    '🌆 Selamat sore! Sisa hari ini semoga tetap menyenangkan ya. 😄',
+  ],
+  malam: [
+    '🌙 Selamat malam! Istirahat yang cukup ya, besok semangat lagi. 😴',
+    '✨ Malam semuanya! Terima kasih untuk hari ini, selamat beristirahat. 🌟',
+    '🌃 Selamat malam! Jangan begadang ya, jaga kesehatan. 💤',
+  ],
+}
+
 function getDefaultGreeting(type: string): string {
-  const greetings: Record<string, string> = {
-    pagi: '🌅 Selamat pagi semuanya! Semoga hari ini penuh berkah dan semangat. 💪',
-    siang: '☀️ Selamat siang! Jangan lupa istirahat dan makan siang ya. 🍽️',
-    sore: '🌇 Selamat sore! Semoga aktivitas hari ini berjalan lancar. 🙏',
-    malam: '🌙 Selamat malam! Istirahat yang cukup ya, besok semangat lagi. 😴',
-  }
-  return greetings[type] || greetings.pagi
+  const list = DEFAULT_GREETINGS[type] || DEFAULT_GREETINGS.pagi
+  return list[Math.floor(Math.random() * list.length)]
 }
 
 // GET - Called by Vercel cron or external cron service
