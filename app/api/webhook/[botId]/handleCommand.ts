@@ -15,12 +15,6 @@ export async function handleCommand(message: any, bot: any) {
   // Only handle known commands
   if (!['/mute', '/unmute', '/kick', '/ban', '/unban'].includes(command)) return
 
-  // Only the bot that owns the moderation feature should respond. Without this
-  // check, every bot in the group answers the same command (e.g. 3 bots reply
-  // "Reply pesan member..." or "not enough rights") creating noise.
-  const features = bot.enabledFeatures || []
-  if (!features.includes('moderation')) return
-
   // === ADMIN CHECK (re-enabled) ===
   // Allow if: anonymous admin OR creator OR administrator
   const isAnonymousAdmin = message.sender_chat && String(message.sender_chat.id) === String(chat.id)
