@@ -659,9 +659,23 @@ async function handleWelcomeTest(message: any, bot: any) {
     return
   }
 
-  // Force-fire welcome with current user as the simulated new member.
+  // If sender is a bot account, sendWelcome's `member.is_bot` gate would
+  // silently skip the test. Most common cause: admin posts as **anonymous
+  // admin** in a supergroup -> message.from = GroupAnonymousBot (is_bot=true).
+  // Synthesize a normal-looking test member so the welcome actually renders.
+  const senderIsBot = !!user.is_bot
+  const testMember = senderIsBot
+    ? {
+        id: user.id,
+        first_name: user.first_name || 'Test Member',
+        username: user.username,
+        is_bot: false,
+      }
+    : user
+
+  // Force-fire welcome with the test member as the simulated new joiner.
   // bypassDedup=true so repeated /welcometest in the same chat keeps working.
-  const result: any = await sendWelcome(chat, user, bot, true)
+  const result: any = await sendWelcome(chat, testMember, bot, true)
 
   // Now report exactly what happened. If sendWelcome was rejected by Telegram
   // (HTML parse error, bad token, blocked, etc.), the description tells us
@@ -669,8 +683,15 @@ async function handleWelcomeTest(message: any, bot: any) {
   let reportText: string
   if (!result) {
     reportText =
-      '⚠️ Test welcome di-skip oleh gate internal (cek /welcomedebug). ' +
-      'Kemungkinan: feature off, chat type bukan group/supergroup, atau pesan __disabled__.'
+      '⚠️ Test welcome di-skip oleh gate internal di sendWelcome.\n\n' +
+      `<b>Diagnostik gate (yang true = penyebab skip):</b>\n` +
+      `• <code>!member</code>: ${!testMember}\n` +
+      `• <code>member.is_bot</code>: ${!!testMember.is_bot}\n` +
+      `• <code>chat.type</code>: <code>${chat.type}</code> (perlu group/supergroup)\n` +
+      `• <code>welcome belum di enabledFeatures</code>: ${!(bot.enabledFeatures || []).includes('welcome')}\n` +
+      `• <code>welcomeMessage === '__disabled__'</code>: ${bot.welcomeMessage === '__disabled__'}\n\n` +
+      `<b>Sender:</b> id=<code>${user.id}</code>, is_bot=<code>${!!user.is_bot}</code>${senderIsBot ? ' → di-mock jadi normal user' : ''}\n` +
+      'Jika semua false tapi masih skip, kasih saya screenshot output ini.'
   } else if (result.ok && result.mode === 'html') {
     reportText =
       '✅ Welcome berhasil dikirim sebagai HTML (lihat pesan welcome di atas).\n\n' +
