@@ -19,3 +19,4 @@ module.exports = nextConfig
 // redeploy: 3 variasi acak sapaan otomatis pagi/siang/sore/malam
 // redeploy: panel multi-variasi sapaan (tampil 3 default + bisa tambah)
 // redeploy: teks custom moderasi mute/unmute/kick/ban/unban
+// redeploy: fitur kirim pesan bebas lewat panel

@@ -296,6 +296,90 @@ function BannedWordsSection({ botId, bot, confirmDelete, setConfirmDelete, handl
   )
 }
 
+// Send free-form message to groups
+function SendMessageSection({ botId, bot, confirmDelete, setConfirmDelete, handleDeleteFeature }: any) {
+  const [target, setTarget] = useState('all')
+  const [text, setText] = useState('')
+  const [sending, setSending] = useState(false)
+  const [result, setResult] = useState<{ ok: boolean; msg: string } | null>(null)
+  const groups = bot.groups || []
+
+  const handleSend = async () => {
+    if (!text.trim()) return
+    setSending(true)
+    setResult(null)
+    try {
+      const res = await fetch(`/api/bots/${botId}/send-message`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ target, text }),
+      })
+      const data = await res.json()
+      if (res.ok && data.success) {
+        setResult({ ok: true, msg: `Terkirim ke ${data.sent}/${data.total} grup.` })
+        setText('')
+      } else {
+        setResult({ ok: false, msg: data.error || `Gagal kirim (${data.sent || 0}/${data.total || 0} berhasil).` })
+      }
+    } catch {
+      setResult({ ok: false, msg: 'Gagal menghubungi server.' })
+    }
+    setSending(false)
+  }
+
+  return (
+    <section className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+      <div className="px-4 py-3 border-b border-slate-100 flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <span>📨</span>
+          <h2 className="text-sm font-semibold text-slate-800">Kirim Pesan</h2>
+        </div>
+        {confirmDelete === 'send_message' ? (
+          <div className="flex items-center gap-2">
+            <button onClick={() => handleDeleteFeature('send_message')} className="text-xs bg-red-500 text-white px-2 py-0.5 rounded">Ya</button>
+            <button onClick={() => setConfirmDelete('')} className="text-xs text-slate-400">Batal</button>
+          </div>
+        ) : (
+          <button onClick={() => setConfirmDelete('send_message')} className="text-xs text-slate-400 hover:text-red-500 transition-colors">Hapus</button>
+        )}
+      </div>
+      <div className="px-4 py-4">
+        <p className="text-xs text-slate-500 mb-3">Kirim pesan bebas dari bot ke grup. Bot harus sudah ada di grup tersebut.</p>
+
+        {groups.length === 0 ? (
+          <div className="p-3 bg-amber-50 rounded-lg border border-amber-100">
+            <p className="text-xs text-amber-700">Belum ada grup terdaftar. Tambahkan grup lewat fitur <b>Proteksi Grup</b> atau tambahkan bot ke grup terlebih dahulu.</p>
+          </div>
+        ) : (
+          <>
+            <label className="block text-[10px] font-semibold text-slate-400 uppercase tracking-wide mb-1.5">Tujuan</label>
+            <select value={target} onChange={(e) => setTarget(e.target.value)} className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-slate-50 focus:outline-none focus:ring-2 focus:ring-indigo-300 focus:bg-white mb-3">
+              <option value="all">📢 Semua Grup ({groups.length})</option>
+              {groups.map((g: any) => (
+                <option key={g.groupId} value={g.groupId}>{g.groupTitle || g.groupId}</option>
+              ))}
+            </select>
+
+            <label className="block text-[10px] font-semibold text-slate-400 uppercase tracking-wide mb-1.5">Isi Pesan</label>
+            <textarea value={text} onChange={(e) => setText(e.target.value)} placeholder="Tulis pesan yang ingin dikirim bot...&#10;&#10;Mendukung HTML: <b>tebal</b>, <i>miring</i>, <a href='...'>link</a>" rows={5} className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300 resize-none bg-slate-50 focus:bg-white mb-1" />
+            <p className="text-[10px] text-slate-400 mb-3">Mendukung format HTML: {'<b>tebal</b>'} {'<i>miring</i>'} {'<a href="url">teks</a>'}</p>
+
+            {result && (
+              <div className={`mb-3 p-2.5 rounded-lg border ${result.ok ? 'bg-emerald-50 border-emerald-100' : 'bg-red-50 border-red-100'}`}>
+                <p className={`text-xs ${result.ok ? 'text-emerald-600' : 'text-red-600'}`}>{result.ok ? '✅ ' : '❌ '}{result.msg}</p>
+              </div>
+            )}
+
+            <button onClick={handleSend} disabled={sending || !text.trim()} className="w-full py-2.5 bg-indigo-600 hover:bg-indigo-700 disabled:bg-slate-300 disabled:cursor-not-allowed text-white text-sm font-medium rounded-xl transition-colors flex items-center justify-center gap-2">
+              <span>📨</span>{sending ? 'Mengirim...' : 'Kirim Pesan'}
+            </button>
+          </>
+        )}
+      </div>
+    </section>
+  )
+}
+
 // Moderation custom messages editor (mute/unmute/kick/ban/unban)
 function ModerationMessages({ botId, bot, fetchBot }: any) {
   const ACTIONS: { key: string; feature: string; label: string; icon: string; placeholder: string }[] = [
@@ -568,6 +652,7 @@ const ALL_FEATURES: Feature[] = [
   { id: 'anti_spam', name: 'Anti-Spam', desc: 'Mute member yang kirim pesan terlalu cepat/banyak', icon: '🚫', category: 'Proteksi' },
   { id: 'banned_words', name: 'Kata Terlarang', desc: 'Hapus pesan yang mengandung kata tertentu + mute', icon: '🤬', category: 'Proteksi' },
   { id: 'welcome', name: 'Welcome Message', desc: 'Sambut member baru yang masuk grup', icon: '👋', category: 'Pesan Otomatis' },
+  { id: 'send_message', name: 'Kirim Pesan', desc: 'Kirim pesan bebas ke grup lewat panel', icon: '📨', category: 'Pesan Otomatis' },
   { id: 'greeting', name: 'Ucapan Otomatis', desc: 'Kirim ucapan selamat pagi, siang, sore, malam', icon: '🕐', category: 'Pesan Otomatis' },
   { id: 'moderation', name: 'Moderasi (Mute/Kick/Ban)', desc: 'Admin bisa mute, kick, ban member via command', icon: '⚔️', category: 'Moderasi' },
 ]
@@ -1222,6 +1307,11 @@ export default function BotSettingsPage() {
           </section>
         )}
 
+        {/* SEND MESSAGE (kirim pesan bebas) */}
+        {activeTab === 'pesan' && enabledFeatures.includes('send_message') && (
+          <SendMessageSection botId={botId} bot={bot} confirmDelete={confirmDelete} setConfirmDelete={setConfirmDelete} handleDeleteFeature={handleDeleteFeature} />
+        )}
+
         {/* WELCOME MESSAGE */}
         {activeTab === 'pesan' && enabledFeatures.includes('welcome') && (
           <section className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
@@ -1433,7 +1523,7 @@ export default function BotSettingsPage() {
             <p className="text-slate-400 text-xs mt-1">Klik "+ Tambah Fitur" untuk menambahkan</p>
           </div>
         )}
-        {activeTab === 'pesan' && !enabledFeatures.includes('welcome') && (
+        {activeTab === 'pesan' && !enabledFeatures.includes('welcome') && !enabledFeatures.includes('send_message') && (
           <div className="bg-white rounded-xl border border-slate-200 p-8 text-center">
             <p className="text-slate-500 text-sm">Belum ada fitur Pesan Bot</p>
             <p className="text-slate-400 text-xs mt-1">Klik "+ Tambah Fitur" untuk menambahkan</p>
