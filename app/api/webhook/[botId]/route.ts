@@ -762,7 +762,15 @@ async function sendForceJoinWarning(
 ) {
   const userName = user.first_name || 'User'
   const userMention = user.username ? `@${user.username}` : userName
-  const channelList = notJoinedChannels.map((c) => `📢 ${c.channelTitle}`).join('\n')
+  // Clickable channel links (public → t.me/username). Falls back to title.
+  const channelList = notJoinedChannels
+    .map((c) => {
+      const title = c.channelTitle || (c.channelUsername ? `@${c.channelUsername}` : c.channelId)
+      return c.channelUsername
+        ? `📢 <a href="https://t.me/${c.channelUsername}">${title}</a>`
+        : `📢 ${title}`
+    })
+    .join('\n')
 
   let text: string
 
@@ -776,6 +784,11 @@ async function sendForceJoinWarning(
       .replace(/{id}/g, String(user.id))
       .replace(/{user}/g, `<b>${userMention}</b>`)
       .replace(/{channels}/g, channelList)
+      .replace(/{channel}/g, channelList)
+    // Any {@something} → clickable channel link
+    text = text.replace(/{@([A-Za-z0-9_]{2,})}/g, (_m: string, uname: string) =>
+      `<a href="https://t.me/${uname}">@${uname}</a>`
+    )
   } else {
     // Default message
     text = `⚠️ <b>${userMention}</b>, kamu harus join channel berikut sebelum bisa kirim pesan di grup ini:\n\n${channelList}\n\nSilakan join channel di bawah, lalu coba kirim pesan lagi.`
