@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import connectDB from '@/lib/mongodb'
 import Bot from '@/lib/models/Bot'
+import Counter from '@/lib/models/Counter'
 
 export const dynamic = 'force-dynamic'
 
@@ -25,10 +26,11 @@ function getDefaultGreeting(type: string): string {
   return greetings[type] || greetings.pagi
 }
 
-// GET - Called by external cron service (cron-job.org)
+// GET - Called by Vercel cron or external cron service
 export async function GET(request: NextRequest) {
   try {
     const greetingType = getGreetingType()
+    const today = new Date().toISOString().split('T')[0] // YYYY-MM-DD
 
     await connectDB()
 
@@ -39,6 +41,10 @@ export async function GET(request: NextRequest) {
     })
 
     let sent = 0
+    let skipped = 0
+
+    // Track which groups already received greeting today for this time slot
+    const sentGroups = new Set<string>()
 
     for (const bot of bots) {
       // Get the greeting message for current time
@@ -57,10 +63,27 @@ export async function GET(request: NextRequest) {
       // Use custom or default message
       const text = greetingMessage || getDefaultGreeting(greetingType)
 
-      // Send to all groups
+      // Send to each group (but only ONCE per group per time slot per day)
       for (const group of bot.groups) {
+        const groupKey = `greeting_${group.groupId}_${greetingType}_${today}`
+
+        // Skip if this group already got this greeting today
+        if (sentGroups.has(group.groupId)) {
+          skipped++
+          continue
+        }
+
+        // Check in database if already sent today
+        const existing = await Counter.findOne({ key: groupKey })
+        if (existing) {
+          sentGroups.add(group.groupId)
+          skipped++
+          continue
+        }
+
+        // Send greeting
         try {
-          await fetch(`https://api.telegram.org/bot${bot.token}/sendMessage`, {
+          const res = await fetch(`https://api.telegram.org/bot${bot.token}/sendMessage`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -69,7 +92,18 @@ export async function GET(request: NextRequest) {
               parse_mode: 'HTML',
             }),
           })
-          sent++
+
+          const data = await res.json()
+          if (data.ok) {
+            // Mark as sent in database (prevents duplicate on next call)
+            await Counter.findOneAndUpdate(
+              { key: groupKey },
+              { count: 1, firstMsg: Date.now() },
+              { upsert: true }
+            )
+            sentGroups.add(group.groupId)
+            sent++
+          }
         } catch (error) {
           console.error(`Failed to send greeting to ${group.groupId}:`, error)
         }
@@ -79,8 +113,10 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({
       success: true,
       greetingType,
+      date: today,
       botCount: bots.length,
       messagesSent: sent,
+      messagesSkipped: skipped,
     })
   } catch (error: any) {
     console.error('Cron greeting error:', error?.message)
