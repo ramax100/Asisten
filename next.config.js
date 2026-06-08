@@ -27,3 +27,4 @@ module.exports = nextConfig
 // redeploy: form buat bot dengan channel & grup opsional
 // redeploy: fix force join toggle + diagnostik privacy mode
 // redeploy: fix welcome message HTML escaping
+// redeploy: tambah /welcomedebug
