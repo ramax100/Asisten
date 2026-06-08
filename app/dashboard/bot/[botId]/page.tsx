@@ -1269,7 +1269,7 @@ export default function BotSettingsPage() {
                 <div className="p-3 bg-orange-50/50 rounded-lg border border-orange-100">
                   <label className="block text-xs text-orange-700 mb-1.5 font-medium">Pesan Welcome:</label>
                   <textarea value={welcomeText} onChange={(e) => setWelcomeText(e.target.value)} placeholder={"👋 Selamat datang {mention} di grup!\n\nSilakan baca rules dan jangan lupa join channel kami."} rows={4} className="w-full px-3 py-2 border border-orange-200 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-orange-300 resize-none bg-white" />
-                  <p className="text-[10px] text-orange-400 mt-1">Variabel: {'{mention}'} {'{name}'} {'{username}'} {'{id}'} {'{group}'}</p>
+                  <p className="text-[10px] text-orange-400 mt-1">Variabel: {'{mention}'} {'{name}'} {'{username}'} {'{@username}'} {'{id}'} {'{group}'} {'{channel}'}</p>
                   <div className="flex gap-2 mt-2">
                     <button onClick={handleSaveWelcome} disabled={saving} className="px-3 py-1.5 bg-orange-600 hover:bg-orange-700 disabled:bg-slate-300 text-white text-xs rounded-lg">{saving ? '...' : 'Simpan'}</button>
                     <button onClick={handleDeleteWelcome} className="px-3 py-1.5 text-xs text-red-500 border border-red-200 rounded-lg hover:bg-red-50">Hapus Pesan</button>

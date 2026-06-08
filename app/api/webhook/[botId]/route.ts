@@ -218,6 +218,11 @@ async function sendWelcome(chat: any, member: any, bot: any) {
   const groupTitle = escapeHtml(chat.title || 'grup')
   const mention = `<a href="tg://user?id=${member.id}">${name}</a>`
 
+  // Build {channel} list from bot's channels array
+  const channelList = (bot.channels || [])
+    .map((ch: any) => ch.channelUsername ? `@${ch.channelUsername}` : ch.channelTitle || ch.channelId)
+    .join(', ') || '-'
+
   let text = bot.welcomeMessage && bot.welcomeMessage.trim()
     ? bot.welcomeMessage
     : `👋 Selamat datang {mention} di <b>{group}</b>!\n\nSilakan baca peraturan grup ya.`
@@ -225,9 +230,12 @@ async function sendWelcome(chat: any, member: any, bot: any) {
   text = text
     .replace(/{mention}/g, mention)
     .replace(/{name}/g, name)
+    .replace(/{@username}/g, username)
     .replace(/{username}/g, username)
     .replace(/{id}/g, String(member.id))
     .replace(/{group}/g, groupTitle)
+    .replace(/{channel}/g, channelList)
+    .replace(/{channels}/g, channelList)
 
   try {
     const res = await fetch(`https://api.telegram.org/bot${bot.token}/sendMessage`, {
