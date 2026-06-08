@@ -218,9 +218,16 @@ async function sendWelcome(chat: any, member: any, bot: any) {
   const groupTitle = escapeHtml(chat.title || 'grup')
   const mention = `<a href="tg://user?id=${member.id}">${name}</a>`
 
-  // Build {channel} list from bot's channels array
+  // Build {channel} list from bot's channels array as clickable links.
   const channelList = (bot.channels || [])
-    .map((ch: any) => ch.channelUsername ? `@${ch.channelUsername}` : ch.channelTitle || ch.channelId)
+    .map((ch: any) => {
+      const title = escapeHtml(ch.channelTitle || (ch.channelUsername ? `@${ch.channelUsername}` : ch.channelId))
+      // Public channel with username -> link to t.me/username (clickable tag).
+      if (ch.channelUsername) {
+        return `<a href="https://t.me/${ch.channelUsername}">${title}</a>`
+      }
+      return title
+    })
     .join(', ') || '-'
 
   let text = bot.welcomeMessage && bot.welcomeMessage.trim()
