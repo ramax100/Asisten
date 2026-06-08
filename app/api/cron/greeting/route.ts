@@ -55,13 +55,27 @@ export async function GET(request: NextRequest) {
         malam: bot.greetingMalam,
       }
 
+      // Get templates array for current time
+      const templatesMap: Record<string, string[]> = {
+        pagi: bot.greetingTemplatesPagi || [],
+        siang: bot.greetingTemplatesSiang || [],
+        sore: bot.greetingTemplatesSore || [],
+        malam: bot.greetingTemplatesMalam || [],
+      }
+
       const greetingMessage = fieldMap[greetingType]
 
       // Skip if disabled
       if (greetingMessage === '__disabled__') continue
 
-      // Use custom or default message
-      const text = greetingMessage || getDefaultGreeting(greetingType)
+      // Pick random text: prioritize templates array, then single message, then default
+      const templates = templatesMap[greetingType].filter((t: string) => t && t.trim())
+      let text: string
+      if (templates.length > 0) {
+        text = templates[Math.floor(Math.random() * templates.length)]
+      } else {
+        text = greetingMessage || getDefaultGreeting(greetingType)
+      }
 
       // Send to each group (but only ONCE per group per time slot per day)
       for (const group of bot.groups) {

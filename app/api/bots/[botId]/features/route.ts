@@ -18,7 +18,7 @@ export async function PATCH(
   }
 
   try {
-    const { feature, enabled, message, featureId } = await request.json()
+    const { feature, enabled, message, featureId, text, index, templates } = await request.json()
 
     await connectDB()
     const bot = await Bot.findOne({ botId: params.botId })
@@ -52,6 +52,33 @@ export async function PATCH(
       bot.greetingSore = message || ''
     } else if (feature === 'greeting_malam') {
       bot.greetingMalam = message || ''
+    } else if (feature === 'greeting_templates') {
+      // Handle greeting templates: { waktu: 'pagi'|'siang'|'sore'|'malam', templates: string[] }
+      const waktu = message
+      const fieldName = `greetingTemplates${waktu.charAt(0).toUpperCase() + waktu.slice(1)}`
+      ;(bot as any)[fieldName] = templates || []
+    } else if (feature === 'greeting_template_add') {
+      // Add a single template: { waktu, text }
+      const waktu = message
+      if (text && text.trim()) {
+        const fieldName = `greetingTemplates${waktu.charAt(0).toUpperCase() + waktu.slice(1)}`
+        if (!(bot as any)[fieldName]) (bot as any)[fieldName] = []
+        ;(bot as any)[fieldName].push(text.trim())
+      }
+    } else if (feature === 'greeting_template_remove') {
+      // Remove a template by index: { waktu, index }
+      const waktu = message
+      const fieldName = `greetingTemplates${waktu.charAt(0).toUpperCase() + waktu.slice(1)}`
+      if ((bot as any)[fieldName] && index >= 0 && index < (bot as any)[fieldName].length) {
+        ;(bot as any)[fieldName].splice(index, 1)
+      }
+    } else if (feature === 'greeting_template_update') {
+      // Update a template by index: { waktu, index, text }
+      const waktu = message
+      const fieldName = `greetingTemplates${waktu.charAt(0).toUpperCase() + waktu.slice(1)}`
+      if ((bot as any)[fieldName] && index >= 0 && index < (bot as any)[fieldName].length) {
+        ;(bot as any)[fieldName][index] = text.trim()
+      }
     } else if (feature === 'banned_words') {
       if (message !== undefined) bot.bannedWords = message.split(',').map((w: string) => w.trim()).filter(Boolean)
     } else if (feature === 'banned_words_action') {
@@ -126,6 +153,10 @@ export async function DELETE(
       bot.greetingSiang = ''
       bot.greetingSore = ''
       bot.greetingMalam = ''
+      bot.greetingTemplatesPagi = []
+      bot.greetingTemplatesSiang = []
+      bot.greetingTemplatesSore = []
+      bot.greetingTemplatesMalam = []
     } else if (feature === 'banned_words') {
       bot.bannedWords = []
       bot.bannedWordsAction = 'delete_warn'
