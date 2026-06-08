@@ -454,9 +454,41 @@ async function handleWelcomeDebug(message: any, bot: any) {
     body: JSON.stringify({ chat_id: chat.id, text: lines.join('\n'), parse_mode: 'HTML' }),
   })
 
-  // Actually trigger the welcome flow as if this user just joined.
+  // Actually attempt the welcome send and report Telegram's raw response so we
+  // can see the real error instead of guessing.
   if (enabled && wm !== '__disabled__') {
-    await handleNewMembers({ chat, new_chat_members: [user] }, bot)
+    const userName = escapeHtml(user.first_name || 'User')
+    const groupTitle = escapeHtml(chat.title || 'grup')
+    const mention = `<a href="tg://user?id=${user.id}">${userName}</a>`
+    let text = wm || `👋 Selamat datang <b>${userName}</b> di grup <b>${groupTitle}</b>!\n\nSilakan baca rules dan perkenalkan dirimu.`
+    text = text
+      .replace(/{mention}/g, mention)
+      .replace(/{name}/g, userName)
+      .replace(/{username}/g, user.username ? `@${escapeHtml(user.username)}` : userName)
+      .replace(/{id}/g, String(user.id))
+      .replace(/{user}/g, `<b>${userName}</b>`)
+      .replace(/{group}/g, groupTitle)
+
+    let report: string
+    try {
+      const res = await fetch(`https://api.telegram.org/bot${bot.token}/sendMessage`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ chat_id: chat.id, text, parse_mode: 'HTML' }),
+      })
+      const data = await res.json()
+      report = data.ok
+        ? '✅ Welcome BERHASIL dikirim (lihat pesan di atas).'
+        : `❌ Welcome GAGAL. Telegram: <code>${escapeHtml(data.description || 'unknown')}</code>`
+    } catch (e: any) {
+      report = `❌ Welcome error jaringan: <code>${escapeHtml(e?.message || 'unknown')}</code>`
+    }
+
+    await fetch(`https://api.telegram.org/bot${bot.token}/sendMessage`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ chat_id: chat.id, text: report, parse_mode: 'HTML' }),
+    })
   }
 }
 
