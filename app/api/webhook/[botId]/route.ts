@@ -241,6 +241,38 @@ async function resetCounter(key: string) {
   try { await Counter.deleteOne({ key }) } catch {}
 }
 
+// Atomically increment a windowed counter.
+// In serverless, concurrent webhook invocations can race on read-modify-write,
+// causing counts to be lost (spam slips through). Using $inc makes the
+// increment atomic so rapid bursts of messages are counted reliably.
+async function incrementWindowedCounter(key: string, intervalMs: number): Promise<number> {
+  const now = Date.now()
+  try {
+    const existing = await Counter.findOne({ key }).lean<{ firstMsg: number; count: number }>()
+
+    // Still inside the active window -> atomic increment scoped to this window
+    if (existing && existing.firstMsg && (now - existing.firstMsg) <= intervalMs) {
+      const updated = await Counter.findOneAndUpdate(
+        { key, firstMsg: existing.firstMsg },
+        { $inc: { count: 1 } },
+        { new: true }
+      )
+      if (updated) return updated.count
+      // firstMsg changed concurrently (a new window started) -> fall through
+    }
+
+    // Start a fresh window
+    await Counter.findOneAndUpdate(
+      { key },
+      { $set: { count: 1, firstMsg: now } },
+      { upsert: true }
+    )
+    return 1
+  } catch {
+    return 1
+  }
+}
+
 // Handle incoming messages
 async function handleMessage(message: any, bot: any) {
   const chat = message.chat
@@ -373,22 +405,11 @@ async function handleMessage(message: any, bot: any) {
   // === ANTI-SPAM CHECK (gate pakai antiSpamEnabled boolean - reliable) ===
   if (hasAntiSpam) {
     const key = `${chat.id}_${user.id}_spam`
-    const now = Date.now()
     const intervalMs = (bot.antiSpamInterval || 10) * 1000
     const limit = bot.antiSpamLimit || 5
 
-    const spamCounter = await getCounter(key)
-
-    let newCount: number
-    if (!spamCounter.firstMsg || (now - spamCounter.firstMsg) > intervalMs) {
-      // Window baru
-      newCount = 1
-      await setCounter(key, 1, now)
-    } else {
-      // Masih dalam window
-      newCount = spamCounter.count + 1
-      await setCounter(key, newCount, spamCounter.firstMsg)
-    }
+    // Atomic increment - reliable under concurrent serverless invocations
+    const newCount = await incrementWindowedCounter(key, intervalMs)
 
     if (newCount > limit) {
       const muteDuration = bot.antiSpamMuteDuration || '5m'
