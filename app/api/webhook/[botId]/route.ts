@@ -241,6 +241,69 @@ async function resetCounter(key: string) {
   try { await Counter.deleteOne({ key }) } catch {}
 }
 
+// Atomically increment a windowed counter.
+// In serverless, concurrent webhook invocations can race on read-modify-write,
+// causing counts to be lost (spam slips through). Anti-spam is the ONLY feature
+// that must accumulate state across rapid messages, which is exactly when the
+// race bites - hence other mute features work but anti-spam didn't.
+// Using an atomic $inc upsert guarantees every message is counted.
+async function incrementWindowedCounter(key: string, intervalMs: number): Promise<number> {
+  const now = Date.now()
+  try {
+    // Atomic increment; initialise firstMsg only when the document is created.
+    const doc = await Counter.findOneAndUpdate(
+      { key },
+      { $inc: { count: 1 }, $setOnInsert: { firstMsg: now } },
+      { upsert: true, new: true }
+    )
+
+    // Window expired -> start a fresh window atomically.
+    if (!doc.firstMsg || now - doc.firstMsg > intervalMs) {
+      await Counter.findOneAndUpdate(
+        { key },
+        { $set: { count: 1, firstMsg: now } }
+      )
+      return 1
+    }
+
+    return doc.count
+  } catch {
+    return 1
+  }
+}
+
+// Restrict (mute) a user. Returns the Telegram API result so callers can
+// detect permission problems instead of failing silently:
+// - bot is not an admin in the group
+// - bot lacks the "Restrict members" permission
+// - the chat is a basic group (mute only works in supergroups)
+async function muteUser(
+  token: string,
+  chatId: number,
+  userId: number,
+  seconds: number
+): Promise<{ ok: boolean; description?: string }> {
+  try {
+    const untilDate = Math.floor(Date.now() / 1000) + seconds
+    const res = await fetch(`https://api.telegram.org/bot${token}/restrictChatMember`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        chat_id: chatId,
+        user_id: userId,
+        permissions: { can_send_messages: false, can_send_audios: false, can_send_documents: false, can_send_photos: false, can_send_videos: false, can_send_video_notes: false, can_send_voice_notes: false, can_send_polls: false, can_send_other_messages: false, can_add_web_page_previews: false },
+        until_date: untilDate,
+      }),
+    })
+    const data = await res.json()
+    if (!data.ok) console.error('restrictChatMember failed:', data.description)
+    return { ok: !!data.ok, description: data.description }
+  } catch (e: any) {
+    console.error('muteUser error:', e?.message)
+    return { ok: false, description: e?.message }
+  }
+}
+
 // Handle incoming messages
 async function handleMessage(message: any, bot: any) {
   const chat = message.chat
@@ -275,7 +338,10 @@ async function handleMessage(message: any, bot: any) {
 
   const features = bot.enabledFeatures || []
   // Always enable features - bypass enabledFeatures check completely
-  const hasAntiSpam = bot.antiSpamEnabled === true
+  // Anti-spam runs if the feature is enabled OR the legacy boolean flag is set.
+  // (Previously only the boolean was checked, so anti-spam silently did nothing
+  // whenever antiSpamEnabled wasn't persisted even though the feature was added.)
+  const hasAntiSpam = bot.antiSpamEnabled === true || features.includes('anti_spam')
   const hasAntiForward = true
   const hasBannedWords = bot.bannedWords && bot.bannedWords.length > 0
   const hasForceJoin = bot.channels && bot.channels.length > 0
@@ -373,45 +439,35 @@ async function handleMessage(message: any, bot: any) {
   // === ANTI-SPAM CHECK (gate pakai antiSpamEnabled boolean - reliable) ===
   if (hasAntiSpam) {
     const key = `${chat.id}_${user.id}_spam`
-    const now = Date.now()
     const intervalMs = (bot.antiSpamInterval || 10) * 1000
     const limit = bot.antiSpamLimit || 5
 
-    const spamCounter = await getCounter(key)
-
-    let newCount: number
-    if (!spamCounter.firstMsg || (now - spamCounter.firstMsg) > intervalMs) {
-      // Window baru
-      newCount = 1
-      await setCounter(key, 1, now)
-    } else {
-      // Masih dalam window
-      newCount = spamCounter.count + 1
-      await setCounter(key, newCount, spamCounter.firstMsg)
-    }
+    // Atomic increment - reliable under concurrent serverless invocations
+    const newCount = await incrementWindowedCounter(key, intervalMs)
 
     if (newCount > limit) {
       const muteDuration = bot.antiSpamMuteDuration || '5m'
       const seconds = parseDurationSimple(muteDuration)
-      const untilDate = Math.floor(Date.now() / 1000) + seconds
 
+      // Reset early so the window restarts cleanly after action
+      await resetCounter(key)
       await deleteMessage(bot.token, chat.id, message.message_id)
 
-      await fetch(`https://api.telegram.org/bot${bot.token}/restrictChatMember`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          chat_id: chat.id,
-          user_id: user.id,
-          permissions: { can_send_messages: false, can_send_audios: false, can_send_documents: false, can_send_photos: false, can_send_videos: false, can_send_video_notes: false, can_send_voice_notes: false, can_send_polls: false, can_send_other_messages: false, can_add_web_page_previews: false },
-          until_date: untilDate,
-        }),
-      })
+      const result = await muteUser(bot.token, chat.id, user.id, seconds)
 
-      await resetCounter(key)
-      const customMsg = bot.antiSpamMessage || `🚫 ${userMention} di-mute ${muteDuration} karena spam (>${limit} pesan dalam ${bot.antiSpamInterval || 10} detik).`
-      const finalMsg = customMsg.replace(/{mention}/g, userMention).replace(/{name}/g, userName).replace(/{duration}/g, muteDuration).replace(/{limit}/g, String(limit))
-      await sendAutoDeleteMsg(bot.token, chat.id, finalMsg, 10000)
+      if (result.ok) {
+        const customMsg = bot.antiSpamMessage || `🚫 ${userMention} di-mute ${muteDuration} karena spam (>${limit} pesan dalam ${bot.antiSpamInterval || 10} detik).`
+        const finalMsg = customMsg.replace(/{mention}/g, userMention).replace(/{name}/g, userName).replace(/{duration}/g, muteDuration).replace(/{limit}/g, String(limit))
+        await sendAutoDeleteMsg(bot.token, chat.id, finalMsg, 10000)
+      } else {
+        // Don't fail silently: tell admins why the spammer wasn't muted.
+        await sendAutoDeleteMsg(
+          bot.token,
+          chat.id,
+          `⚠️ Spam terdeteksi dari ${userMention}, tapi bot gagal mute.\n\nPastikan bot adalah <b>admin</b> dengan izin <b>Restrict members</b>, dan grup bertipe <b>supergroup</b>.`,
+          15000
+        )
+      }
       return
     }
   }
