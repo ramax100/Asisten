@@ -8,6 +8,45 @@ import { handleCommand } from './handleCommand'
 
 export const dynamic = 'force-dynamic'
 
+// Build marker - bump when deploying so we can confirm which version is live.
+const WEBHOOK_VERSION = 'v3-welcome-2026-06-08'
+
+// GET - open this URL in a browser to confirm the LIVE deployed version and
+// the bot's actual webhook + welcome config (no Telegram/Vercel dashboard needed).
+export async function GET(
+  request: NextRequest,
+  { params }: { params: { botId: string } }
+) {
+  try {
+    await connectDB()
+    const bot = await Bot.findOne({ botId: params.botId })
+    let webhookInfo: any = null
+    if (bot?.token) {
+      try {
+        const r = await fetch(`https://api.telegram.org/bot${bot.token}/getWebhookInfo`)
+        const d = await r.json()
+        if (d.ok) webhookInfo = d.result
+      } catch { /* ignore */ }
+    }
+    return NextResponse.json({
+      version: WEBHOOK_VERSION,
+      botFound: !!bot,
+      botUsername: bot?.botUsername || null,
+      isActive: bot?.isActive ?? null,
+      enabledFeatures: bot?.enabledFeatures || [],
+      welcomeEnabled: (bot?.enabledFeatures || []).includes('welcome'),
+      welcomeMessageStatus:
+        bot?.welcomeMessage === '__disabled__' ? 'disabled' : bot?.welcomeMessage ? 'custom' : 'default',
+      telegramWebhookUrl: webhookInfo?.url || null,
+      telegramPendingUpdates: webhookInfo?.pending_update_count ?? null,
+      telegramLastError: webhookInfo?.last_error_message || null,
+      telegramAllowedUpdates: webhookInfo?.allowed_updates || 'default (all except chat_member)',
+    })
+  } catch (e: any) {
+    return NextResponse.json({ version: WEBHOOK_VERSION, error: e?.message || 'error' }, { status: 500 })
+  }
+}
+
 // Opportunistic greeting: fire the current time-slot greeting on the first
 // group activity of that slot. Makes all 4 slots (pagi/siang/sore/malam) work
 // automatically without depending on an hourly external cron. Dedup shares the
