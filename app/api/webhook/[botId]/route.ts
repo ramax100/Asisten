@@ -77,6 +77,9 @@ export async function POST(
       await handleCallbackQuery(update.callback_query, bot)
     } else if (update.my_chat_member) {
       await handleMyChatMember(update.my_chat_member, bot)
+    } else if (update.chat_member) {
+      // Fires on self-join via link/search in supergroups (no service message)
+      await handleChatMemberUpdate(update.chat_member, bot)
     }
 
     return NextResponse.json({ ok: true })
@@ -189,56 +192,84 @@ function escapeHtml(s: string): string {
     .replace(/>/g, '&gt;')
 }
 
-// Handle new members joining the group → send welcome message
-async function handleNewMembers(message: any, bot: any) {
-  const chat = message.chat
-  const newMembers = message.new_chat_members || []
-
-  // Only groups
+// Send the welcome message for a single member (shared by new_chat_members
+// service messages AND chat_member updates). Dedup prevents a double welcome
+// when Telegram delivers both for the same join.
+async function sendWelcome(chat: any, member: any, bot: any) {
+  if (!member || member.is_bot) return
   if (chat.type !== 'group' && chat.type !== 'supergroup') return
-
-  // Feature must be enabled and not disabled
   if (!bot.enabledFeatures || !bot.enabledFeatures.includes('welcome')) return
   if (bot.welcomeMessage === '__disabled__') return
 
-  for (const member of newMembers) {
-    if (member.is_bot) continue
+  // Dedup: only one welcome per chat+user within 60s.
+  const dedupKey = `welcome_${chat.id}_${member.id}`
+  try {
+    const existing = await Counter.findOne({ key: dedupKey })
+    if (existing && Date.now() - existing.firstMsg < 60000) return
+    await Counter.findOneAndUpdate(
+      { key: dedupKey },
+      { count: 1, firstMsg: Date.now() },
+      { upsert: true }
+    )
+  } catch { /* if dedup fails, still proceed to send */ }
 
-    const name = escapeHtml(member.first_name || 'User')
-    const username = member.username ? `@${escapeHtml(member.username)}` : name
-    const groupTitle = escapeHtml(chat.title || 'grup')
-    const mention = `<a href="tg://user?id=${member.id}">${name}</a>`
+  const name = escapeHtml(member.first_name || 'User')
+  const username = member.username ? `@${escapeHtml(member.username)}` : name
+  const groupTitle = escapeHtml(chat.title || 'grup')
+  const mention = `<a href="tg://user?id=${member.id}">${name}</a>`
 
-    // Build text from custom template or default
-    let text = bot.welcomeMessage && bot.welcomeMessage.trim()
-      ? bot.welcomeMessage
-      : `👋 Selamat datang {mention} di <b>{group}</b>!\n\nSilakan baca peraturan grup ya.`
+  let text = bot.welcomeMessage && bot.welcomeMessage.trim()
+    ? bot.welcomeMessage
+    : `👋 Selamat datang {mention} di <b>{group}</b>!\n\nSilakan baca peraturan grup ya.`
 
-    text = text
-      .replace(/{mention}/g, mention)
-      .replace(/{name}/g, name)
-      .replace(/{username}/g, username)
-      .replace(/{id}/g, String(member.id))
-      .replace(/{group}/g, groupTitle)
+  text = text
+    .replace(/{mention}/g, mention)
+    .replace(/{name}/g, name)
+    .replace(/{username}/g, username)
+    .replace(/{id}/g, String(member.id))
+    .replace(/{group}/g, groupTitle)
 
-    try {
-      const res = await fetch(`https://api.telegram.org/bot${bot.token}/sendMessage`, {
+  try {
+    const res = await fetch(`https://api.telegram.org/bot${bot.token}/sendMessage`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ chat_id: chat.id, text, parse_mode: 'HTML' }),
+    })
+    const data = await res.json()
+    // If HTML parse failed (e.g. bad custom tags), retry as plain text.
+    if (!data.ok) {
+      await fetch(`https://api.telegram.org/bot${bot.token}/sendMessage`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ chat_id: chat.id, text, parse_mode: 'HTML' }),
+        body: JSON.stringify({ chat_id: chat.id, text: text.replace(/<[^>]+>/g, '') }),
       })
-      const data = await res.json()
-      // If HTML parse failed (e.g. bad custom tags), retry as plain text.
-      if (!data.ok) {
-        await fetch(`https://api.telegram.org/bot${bot.token}/sendMessage`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ chat_id: chat.id, text: text.replace(/<[^>]+>/g, '') }),
-        })
-      }
-    } catch (error) {
-      console.error('Welcome error:', error)
     }
+  } catch (error) {
+    console.error('Welcome error:', error)
+  }
+}
+
+// new_chat_members service message (member added by someone / classic groups)
+async function handleNewMembers(message: any, bot: any) {
+  const chat = message.chat
+  for (const member of message.new_chat_members || []) {
+    await sendWelcome(chat, member, bot)
+  }
+}
+
+// chat_member update (fires for self-join via link/search in supergroups,
+// which does NOT produce a new_chat_members service message).
+async function handleChatMemberUpdate(update: any, bot: any) {
+  const oldStatus = update.old_chat_member?.status
+  const newStatus = update.new_chat_member?.status
+  const member = update.new_chat_member?.user
+
+  // Treat as a join: was outside the group, now a normal member.
+  const wasOutside = oldStatus === 'left' || oldStatus === 'kicked' || !oldStatus
+  const nowInside = newStatus === 'member' || (newStatus === 'restricted' && update.new_chat_member?.is_member)
+
+  if (wasOutside && nowInside) {
+    await sendWelcome(update.chat, member, bot)
   }
 }
 
