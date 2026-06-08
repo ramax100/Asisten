@@ -215,14 +215,20 @@ async function sendWelcome(chat: any, member: any, bot: any) {
 
   const name = escapeHtml(member.first_name || 'User')
   const username = member.username ? `@${escapeHtml(member.username)}` : name
-  const groupTitle = escapeHtml(chat.title || 'grup')
   const mention = `<a href="tg://user?id=${member.id}">${name}</a>`
 
-  // Build {channel} list from bot's channels array as clickable links.
+  // {group} → clickable link to the group when it is public (has username),
+  // otherwise just the bold title. Taken automatically from the chat.
+  const rawGroupTitle = escapeHtml(chat.title || 'grup')
+  const groupTitle = chat.username
+    ? `<a href="https://t.me/${chat.username}">${rawGroupTitle}</a>`
+    : `<b>${rawGroupTitle}</b>`
+
+  // Build {channel} list from bot's channels array as clickable links,
+  // taken automatically from the bot config (no manual text needed).
   const channelList = (bot.channels || [])
     .map((ch: any) => {
       const title = escapeHtml(ch.channelTitle || (ch.channelUsername ? `@${ch.channelUsername}` : ch.channelId))
-      // Public channel with username -> link to t.me/username (clickable tag).
       if (ch.channelUsername) {
         return `<a href="https://t.me/${ch.channelUsername}">${title}</a>`
       }
@@ -232,7 +238,7 @@ async function sendWelcome(chat: any, member: any, bot: any) {
 
   let text = bot.welcomeMessage && bot.welcomeMessage.trim()
     ? bot.welcomeMessage
-    : `👋 Selamat datang {mention} di <b>{group}</b>!\n\nSilakan baca peraturan grup ya.`
+    : `👋 Selamat datang {mention} di {group}!\n\nSilakan baca peraturan grup ya.`
 
   text = text
     .replace(/{mention}/g, mention)
