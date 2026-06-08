@@ -201,16 +201,19 @@ async function sendWelcome(chat: any, member: any, bot: any) {
   if (!bot.enabledFeatures || !bot.enabledFeatures.includes('welcome')) return
   if (bot.welcomeMessage === '__disabled__') return
 
-  // Dedup: only one welcome per chat+user within 60s.
+  // Cross-bot dedup: when several bots share a group, only ONE should send
+  // welcome per join. Use an atomic findOneAndUpdate with $setOnInsert so the
+  // first invocation reserves the key; everyone else sees the existing doc
+  // and returns without sending.
   const dedupKey = `welcome_${chat.id}_${member.id}`
   try {
-    const existing = await Counter.findOne({ key: dedupKey })
-    if (existing && Date.now() - existing.firstMsg < 60000) return
-    await Counter.findOneAndUpdate(
+    const existing: any = await Counter.findOneAndUpdate(
       { key: dedupKey },
-      { count: 1, firstMsg: Date.now() },
-      { upsert: true }
+      { $setOnInsert: { key: dedupKey, count: 1, firstMsg: Date.now() } },
+      { upsert: true, new: false }
     )
+    // Existing doc found AND fresh -> another bot already greeted this member.
+    if (existing && Date.now() - (existing.firstMsg || 0) < 120000) return
   } catch { /* if dedup fails, still proceed to send */ }
 
   const name = escapeHtml(member.first_name || 'User')
