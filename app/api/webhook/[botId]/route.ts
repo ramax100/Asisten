@@ -74,6 +74,12 @@ export async function POST(
       } else if (msgText.match(/^\/welcomedebug/i)) {
         // Diagnostic command: report live welcome state in-chat
         await handleWelcomeDebug(update.message, bot)
+      } else if (msgText.match(/^\/welcometest/i)) {
+        // Diagnostic command: force-fire sendWelcome with the caller as the
+        // test member (bypassing dedup). Lets admins isolate "is the rendering
+        // & sending working?" from "is Telegram delivering the join event?"
+        // without leave-rejoin testing.
+        await handleWelcomeTest(update.message, bot)
       } else if (msgText.match(/^\/(mute|unmute|kick|ban|unban)/i)) {
         // Handle moderation commands - skip force join check
         await handleCommand(update.message, bot)
@@ -202,7 +208,7 @@ function escapeHtml(s: string): string {
 // Send the welcome message for a single member (shared by new_chat_members
 // service messages AND chat_member updates). Dedup prevents a double welcome
 // when Telegram delivers both for the same join.
-async function sendWelcome(chat: any, member: any, bot: any) {
+async function sendWelcome(chat: any, member: any, bot: any, bypassDedup = false) {
   if (!member || member.is_bot) return
   if (chat.type !== 'group' && chat.type !== 'supergroup') return
   if (!bot.enabledFeatures || !bot.enabledFeatures.includes('welcome')) return
@@ -219,15 +225,17 @@ async function sendWelcome(chat: any, member: any, bot: any) {
   // berulang atau rejoin). Tidak menahan akun manapun "ter-block" di DB.
   const dedupKey = `welcome_${bot.botId}_${chat.id}_${member.id}`
   const DEDUP_WINDOW_MS = 3 * 1000
-  try {
-    const existing: any = await Counter.findOne({ key: dedupKey })
-    if (existing && Date.now() - (existing.firstMsg || 0) < DEDUP_WINDOW_MS) return
-    await Counter.updateOne(
-      { key: dedupKey },
-      { $set: { key: dedupKey, count: 1, firstMsg: Date.now() } },
-      { upsert: true }
-    )
-  } catch { /* dedup failures must not block the welcome */ }
+  if (!bypassDedup) {
+    try {
+      const existing: any = await Counter.findOne({ key: dedupKey })
+      if (existing && Date.now() - (existing.firstMsg || 0) < DEDUP_WINDOW_MS) return
+      await Counter.updateOne(
+        { key: dedupKey },
+        { $set: { key: dedupKey, count: 1, firstMsg: Date.now() } },
+        { upsert: true }
+      )
+    } catch { /* dedup failures must not block the welcome */ }
+  }
 
   const name = escapeHtml(member.first_name || 'User')
   const username = member.username ? `@${escapeHtml(member.username)}` : name
@@ -602,7 +610,72 @@ async function handleWelcomeDebug(message: any, bot: any) {
   })
 }
 
-// Handle incoming messages
+// Diagnostic command: force-fire sendWelcome with the caller as a test member,
+// bypassing the 3s dedup. Lets admins answer "is welcome rendering & sending
+// correctly?" without staging a real leave-rejoin. If welcome appears in chat
+// after running this -> sendWelcome works, the bug is in event delivery
+// (Telegram never fires chat_member / new_chat_members for the join).
+async function handleWelcomeTest(message: any, bot: any) {
+  const chat = message.chat
+  const user = message.from
+  if (!user) return
+  if (chat.type !== 'group' && chat.type !== 'supergroup') {
+    await fetch(`https://api.telegram.org/bot${bot.token}/sendMessage`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ chat_id: chat.id, text: '⚠️ /welcometest hanya bekerja di dalam grup.' }),
+    })
+    return
+  }
+
+  const features = bot.enabledFeatures || []
+  if (!features.includes('welcome')) {
+    await fetch(`https://api.telegram.org/bot${bot.token}/sendMessage`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        chat_id: chat.id,
+        text: '❌ Fitur <b>Welcome</b> belum diaktifkan untuk bot ini. Tambahkan dulu via dashboard → "+ Tambah Fitur" → Welcome Message.',
+        parse_mode: 'HTML',
+      }),
+    })
+    return
+  }
+  if (bot.welcomeMessage === '__disabled__') {
+    await fetch(`https://api.telegram.org/bot${bot.token}/sendMessage`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        chat_id: chat.id,
+        text: '⚠️ Welcome message sedang <b>dinonaktifkan</b>. Aktifkan kembali via dashboard.',
+        parse_mode: 'HTML',
+      }),
+    })
+    return
+  }
+
+  // Force-fire welcome with current user as the simulated new member.
+  // bypassDedup=true so repeated /welcometest in the same chat keeps working.
+  await sendWelcome(chat, user, bot, true)
+
+  // Confirm to the admin that the trigger fired so they know to look for the
+  // welcome message just above. If they don't see one despite this confirmation,
+  // sendWelcome failed silently (HTML parse error, Telegram API rejection, etc.)
+  // and we point them at how to find out.
+  await fetch(`https://api.telegram.org/bot${bot.token}/sendMessage`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      chat_id: chat.id,
+      text:
+        '✅ Test welcome dipicu (bypass dedup, kamu sebagai member simulasi).\n\n' +
+        '• Pesan welcome muncul di atas? → fitur jalan. Welcome saat join asli juga akan muncul, tapi mungkin event join-nya tidak diterima webhook.\n' +
+        '• Pesan welcome <b>tidak</b> muncul? → ada bug di pengiriman (HTML invalid, token salah, Telegram block, dll). Cek <code>/welcomedebug</code> bagian <i>Webhook last_error</i>.',
+      parse_mode: 'HTML',
+      reply_to_message_id: message.message_id,
+    }),
+  })
+}
 async function handleMessage(message: any, bot: any) {
   const chat = message.chat
   const user = message.from
