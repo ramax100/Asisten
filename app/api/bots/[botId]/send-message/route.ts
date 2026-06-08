@@ -8,7 +8,9 @@ function isAuthenticated(request: NextRequest): boolean {
   return request.cookies.get('auth-token')?.value === 'admin-authenticated'
 }
 
-// POST - Send a free-form message to one group or all groups
+const MAX_PHOTO_BYTES = 10 * 1024 * 1024 // Telegram bot sendPhoto limit ~10MB
+
+// POST - Send a free-form message (optionally with a photo) to one group or all groups
 export async function POST(
   request: NextRequest,
   { params }: { params: { botId: string } }
@@ -18,9 +20,41 @@ export async function POST(
   }
 
   try {
-    const { target, text, parseMode } = await request.json()
+    const contentType = request.headers.get('content-type') || ''
 
-    if (!text || !text.trim()) {
+    let target = 'all'
+    let text = ''
+    let photoBuffer: Buffer | null = null
+    let photoName = 'photo.jpg'
+    let photoType = 'image/jpeg'
+
+    if (contentType.includes('multipart/form-data')) {
+      // Photo upload (or text via form)
+      const form = await request.formData()
+      target = (form.get('target') as string) || 'all'
+      text = (form.get('text') as string) || ''
+      const file = form.get('photo')
+      if (file && typeof file !== 'string') {
+        const f = file as File
+        if (!f.type.startsWith('image/')) {
+          return NextResponse.json({ error: 'File harus berupa gambar (jpg, png, dll).' }, { status: 400 })
+        }
+        if (f.size > MAX_PHOTO_BYTES) {
+          return NextResponse.json({ error: 'Ukuran gambar maksimal 10MB.' }, { status: 400 })
+        }
+        photoBuffer = Buffer.from(await f.arrayBuffer())
+        photoName = f.name || 'photo.jpg'
+        photoType = f.type || 'image/jpeg'
+      }
+    } else {
+      // JSON (text only)
+      const body = await request.json()
+      target = body.target || 'all'
+      text = body.text || ''
+    }
+
+    // Need at least a photo or some text
+    if (!photoBuffer && (!text || !text.trim())) {
       return NextResponse.json({ error: 'Pesan tidak boleh kosong' }, { status: 400 })
     }
 
@@ -45,23 +79,37 @@ export async function POST(
       return NextResponse.json({ error: 'Grup tujuan tidak ditemukan' }, { status: 400 })
     }
 
-    // HTML by default; allow disabling formatting if requested
-    const mode = parseMode === 'none' ? undefined : 'HTML'
-
     let sent = 0
     const failed: { groupId: string; reason: string }[] = []
 
     for (const group of targets) {
       try {
-        const body: any = { chat_id: group.groupId, text }
-        if (mode) body.parse_mode = mode
+        let data: any
+        if (photoBuffer) {
+          // Send photo with optional caption via multipart/form-data
+          const fd = new FormData()
+          fd.append('chat_id', String(group.groupId))
+          if (text && text.trim()) {
+            fd.append('caption', text)
+            fd.append('parse_mode', 'HTML')
+          }
+          fd.append('photo', new Blob([photoBuffer], { type: photoType }), photoName)
 
-        const res = await fetch(`https://api.telegram.org/bot${bot.token}/sendMessage`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(body),
-        })
-        const data = await res.json()
+          const res = await fetch(`https://api.telegram.org/bot${bot.token}/sendPhoto`, {
+            method: 'POST',
+            body: fd,
+          })
+          data = await res.json()
+        } else {
+          // Text-only message
+          const res = await fetch(`https://api.telegram.org/bot${bot.token}/sendMessage`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ chat_id: group.groupId, text, parse_mode: 'HTML' }),
+          })
+          data = await res.json()
+        }
+
         if (data.ok) {
           sent++
         } else {

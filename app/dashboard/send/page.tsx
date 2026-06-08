@@ -21,6 +21,8 @@ export default function SendMessagePage() {
   const [selectedBotId, setSelectedBotId] = useState('')
   const [target, setTarget] = useState('all')
   const [text, setText] = useState('')
+  const [photo, setPhoto] = useState<File | null>(null)
+  const [photoPreview, setPhotoPreview] = useState<string>('')
   const [sending, setSending] = useState(false)
   const [result, setResult] = useState<{ ok: boolean; msg: string } | null>(null)
 
@@ -51,20 +53,48 @@ export default function SendMessagePage() {
   // Reset target when switching bot
   useEffect(() => { setTarget('all'); setResult(null) }, [selectedBotId])
 
+  const handlePhotoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0] || null
+    setResult(null)
+    if (!file) { setPhoto(null); setPhotoPreview(''); return }
+    if (!file.type.startsWith('image/')) {
+      setResult({ ok: false, msg: 'File harus berupa gambar.' })
+      return
+    }
+    if (file.size > 10 * 1024 * 1024) {
+      setResult({ ok: false, msg: 'Ukuran gambar maksimal 10MB.' })
+      return
+    }
+    setPhoto(file)
+    setPhotoPreview(URL.createObjectURL(file))
+  }
+
+  const clearPhoto = () => { setPhoto(null); setPhotoPreview('') }
+
   const handleSend = async () => {
-    if (!selectedBotId || !text.trim()) return
+    if (!selectedBotId || (!text.trim() && !photo)) return
     setSending(true)
     setResult(null)
     try {
-      const res = await fetch(`/api/bots/${selectedBotId}/send-message`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ target, text }),
-      })
+      let res: Response
+      if (photo) {
+        const fd = new FormData()
+        fd.append('target', target)
+        fd.append('text', text)
+        fd.append('photo', photo)
+        res = await fetch(`/api/bots/${selectedBotId}/send-message`, { method: 'POST', body: fd })
+      } else {
+        res = await fetch(`/api/bots/${selectedBotId}/send-message`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ target, text }),
+        })
+      }
       const data = await res.json()
       if (res.ok && data.success) {
         setResult({ ok: true, msg: `Terkirim ke ${data.sent}/${data.total} grup.` })
         setText('')
+        clearPhoto()
       } else {
         setResult({ ok: false, msg: data.error || `Gagal kirim (${data.sent || 0}/${data.total || 0} berhasil).` })
       }
@@ -169,10 +199,28 @@ export default function SendMessagePage() {
                   )}
                 </div>
 
-                {/* Isi Pesan */}
+                {/* Foto (opsional) */}
                 <div>
-                  <label className="block text-[10px] font-semibold text-slate-400 uppercase tracking-wide mb-1.5">Isi Pesan</label>
-                  <textarea value={text} onChange={(e) => setText(e.target.value)} placeholder="Tulis pesan yang ingin dikirim bot..." rows={6} className="w-full px-3 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 resize-none bg-slate-50 focus:bg-white" />
+                  <label className="block text-[10px] font-semibold text-slate-400 uppercase tracking-wide mb-1.5">Foto (opsional)</label>
+                  {photoPreview ? (
+                    <div className="relative inline-block">
+                      <img src={photoPreview} alt="preview" className="max-h-48 rounded-xl border border-slate-200" />
+                      <button onClick={clearPhoto} type="button" className="absolute -top-2 -right-2 w-6 h-6 bg-red-500 hover:bg-red-600 text-white rounded-full text-xs flex items-center justify-center shadow">✕</button>
+                    </div>
+                  ) : (
+                    <label className="flex flex-col items-center justify-center gap-1 px-4 py-6 border-2 border-dashed border-slate-200 rounded-xl cursor-pointer hover:border-indigo-300 hover:bg-slate-50 transition-colors">
+                      <span className="text-2xl">🖼️</span>
+                      <span className="text-xs text-slate-500">Klik untuk pilih gambar</span>
+                      <span className="text-[10px] text-slate-400">JPG, PNG, dll. Maks 10MB</span>
+                      <input type="file" accept="image/*" onChange={handlePhotoChange} className="hidden" />
+                    </label>
+                  )}
+                </div>
+
+                {/* Isi Pesan / Caption */}
+                <div>
+                  <label className="block text-[10px] font-semibold text-slate-400 uppercase tracking-wide mb-1.5">{photo ? 'Caption (opsional)' : 'Isi Pesan'}</label>
+                  <textarea value={text} onChange={(e) => setText(e.target.value)} placeholder={photo ? 'Tulis caption foto (opsional)...' : 'Tulis pesan yang ingin dikirim bot...'} rows={photo ? 3 : 6} className="w-full px-3 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 resize-none bg-slate-50 focus:bg-white" />
                   <p className="text-[10px] text-slate-400 mt-1">Mendukung format HTML: {'<b>tebal</b>'} {'<i>miring</i>'} {'<a href="url">teks</a>'}</p>
                 </div>
 
@@ -182,7 +230,7 @@ export default function SendMessagePage() {
                   </div>
                 )}
 
-                <button onClick={handleSend} disabled={sending || !text.trim() || groups.length === 0} className="w-full py-2.5 bg-indigo-600 hover:bg-indigo-700 disabled:bg-slate-300 disabled:cursor-not-allowed text-white text-sm font-medium rounded-xl transition-colors flex items-center justify-center gap-2">
+                <button onClick={handleSend} disabled={sending || (!text.trim() && !photo) || groups.length === 0} className="w-full py-2.5 bg-indigo-600 hover:bg-indigo-700 disabled:bg-slate-300 disabled:cursor-not-allowed text-white text-sm font-medium rounded-xl transition-colors flex items-center justify-center gap-2">
                   <span>📨</span>{sending ? 'Mengirim...' : 'Kirim Pesan'}
                 </button>
               </div>

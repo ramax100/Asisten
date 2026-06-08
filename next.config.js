@@ -21,3 +21,4 @@ module.exports = nextConfig
 // redeploy: teks custom moderasi mute/unmute/kick/ban/unban
 // redeploy: fitur kirim pesan bebas lewat panel
 // redeploy: Kirim Pesan jadi halaman sidebar dengan pemilih bot
+// redeploy: dukung kirim foto via upload di Kirim Pesan
