@@ -50,6 +50,7 @@ export async function GET(
       antiSpamInterval: bot.antiSpamInterval || 10,
       antiSpamMuteDuration: bot.antiSpamMuteDuration || '5m',
       antiSpamMessage: bot.antiSpamMessage || '',
+      antiSpamEnabled: bot.antiSpamEnabled || false,
       antiForwardWarningLimit: bot.antiForwardWarningLimit || 3,
       antiForwardMuteDuration: bot.antiForwardMuteDuration || '1h',
       antiForwardWarningMessage: bot.antiForwardWarningMessage || '',

@@ -32,6 +32,10 @@ export async function PATCH(
       if (!bot.enabledFeatures.includes(featureId)) {
         bot.enabledFeatures.push(featureId)
       }
+      // Enable anti-spam flag when feature is added
+      if (featureId === 'anti_spam') {
+        bot.antiSpamEnabled = true
+      }
     } else if (feature === 'force_join') {
       bot.forceJoinEnabled = enabled
     } else if (feature === 'force_join_message') {
@@ -59,6 +63,7 @@ export async function PATCH(
       if (settings.limit) bot.antiSpamLimit = settings.limit
       if (settings.interval) bot.antiSpamInterval = settings.interval
       if (settings.muteDuration) bot.antiSpamMuteDuration = settings.muteDuration
+      bot.antiSpamEnabled = true
     } else if (feature === 'anti_spam_message') {
       bot.antiSpamMessage = message || ''
     } else if (feature === 'anti_forward_settings') {
@@ -125,6 +130,7 @@ export async function DELETE(
       bot.bannedWords = []
       bot.bannedWordsAction = 'delete_warn'
     } else if (feature === 'anti_spam') {
+      bot.antiSpamEnabled = false
       bot.antiSpamLimit = 5
       bot.antiSpamInterval = 10
       bot.antiSpamMuteDuration = '5m'

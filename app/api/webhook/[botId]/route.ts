@@ -275,7 +275,7 @@ async function handleMessage(message: any, bot: any) {
 
   const features = bot.enabledFeatures || []
   // Always enable features - bypass enabledFeatures check completely
-  const hasAntiSpam = true
+  const hasAntiSpam = bot.antiSpamEnabled === true
   const hasAntiForward = true
   const hasBannedWords = bot.bannedWords && bot.bannedWords.length > 0
   const hasForceJoin = bot.channels && bot.channels.length > 0
@@ -370,8 +370,8 @@ async function handleMessage(message: any, bot: any) {
     }
   }
 
-  // === ANTI-SPAM CHECK (sama pola dengan anti-forward yang sudah berfungsi) ===
-  if (hasAntiSpam && features.includes('anti_spam')) {
+  // === ANTI-SPAM CHECK (gate pakai antiSpamEnabled boolean - reliable) ===
+  if (hasAntiSpam) {
     const key = `${chat.id}_${user.id}_spam`
     const now = Date.now()
     const intervalMs = (bot.antiSpamInterval || 10) * 1000

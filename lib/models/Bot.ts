@@ -55,6 +55,7 @@ const BotSchema = new Schema<IBot>(
     bannedWords: [{ type: String }],
     bannedWordsAction: { type: String, default: 'delete_warn' },
     bannedWordsMessage: { type: String, default: '' },
+    antiSpamEnabled: { type: Boolean, default: false },
     antiSpamLimit: { type: Number, default: 5 },
     antiSpamInterval: { type: Number, default: 10 },
     antiSpamMuteDuration: { type: String, default: '5m' },
