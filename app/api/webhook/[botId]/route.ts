@@ -258,19 +258,22 @@ async function resetCounter(key: string) {
 async function slidingWindowHit(key: string, intervalMs: number, nowMs: number): Promise<number> {
   const cutoff = nowMs - intervalMs
   try {
-    // Append this message's timestamp (additive, concurrency-safe).
-    await Counter.updateOne({ key }, { $push: { hits: nowMs } }, { upsert: true })
-    // Remove timestamps older than the window (atomic, doesn't clobber pushes).
-    await Counter.updateOne({ key }, { $pull: { hits: { $lt: cutoff } } })
+    // 1 op: append this message's timestamp and get the full array back.
+    const doc = await Counter.findOneAndUpdate(
+      { key },
+      { $push: { hits: nowMs } },
+      { upsert: true, new: true }
+    ).lean<{ hits: number[] }>()
 
-    const doc = await Counter.findOne({ key }).lean<{ hits: number[] }>()
-    const hits = doc?.hits || []
-    const count = hits.length || 1
+    const recent = (doc?.hits || []).filter((t: number) => t >= cutoff)
 
-    // Keep count/firstMsg in sync for /spamdebug visibility.
-    await Counter.updateOne({ key }, { $set: { count, firstMsg: hits[0] || nowMs } })
+    // 1 op: persist the trimmed window (also keep count/firstMsg for /spamdebug).
+    await Counter.updateOne(
+      { key },
+      { $set: { hits: recent, count: recent.length, firstMsg: recent[0] || nowMs } }
+    )
 
-    return count
+    return recent.length || 1
   } catch {
     return 1
   }
@@ -501,11 +504,13 @@ async function handleMessage(message: any, bot: any) {
       const muteDuration = bot.antiSpamMuteDuration || '5m'
       const seconds = parseDurationSimple(muteDuration)
 
-      // Reset early so the window restarts cleanly after action
-      await resetCounter(key)
-      await deleteMessage(bot.token, chat.id, message.message_id)
-
-      const result = await muteUser(bot.token, chat.id, user.id, seconds)
+      // Run independent actions in parallel to minimise delay before the mute
+      // takes effect (reset counter, delete the message, restrict the user).
+      const [, , result] = await Promise.all([
+        resetCounter(key),
+        deleteMessage(bot.token, chat.id, message.message_id),
+        muteUser(bot.token, chat.id, user.id, seconds),
+      ])
 
       if (result.ok) {
         const customMsg = bot.antiSpamMessage || `🚫 ${userMention} di-mute ${muteDuration} karena spam (${limit} pesan dalam ${bot.antiSpamInterval || 10} detik).`
