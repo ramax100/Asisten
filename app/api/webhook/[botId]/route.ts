@@ -237,12 +237,18 @@ async function sendWelcome(chat: any, member: any, bot: any) {
   text = text
     .replace(/{mention}/g, mention)
     .replace(/{name}/g, name)
-    .replace(/{@username}/g, username)
     .replace(/{username}/g, username)
     .replace(/{id}/g, String(member.id))
     .replace(/{group}/g, groupTitle)
     .replace(/{channel}/g, channelList)
     .replace(/{channels}/g, channelList)
+
+  // Any {@something} → clickable link to that Telegram channel/username.
+  // e.g. {@chrichstore} becomes a tappable @chrichstore link. This is
+  // applied last so it doesn't clash with the variables above.
+  text = text.replace(/{@([A-Za-z0-9_]{2,})}/g, (_m: string, uname: string) =>
+    `<a href="https://t.me/${uname}">@${uname}</a>`
+  )
 
   try {
     const res = await fetch(`https://api.telegram.org/bot${bot.token}/sendMessage`, {
