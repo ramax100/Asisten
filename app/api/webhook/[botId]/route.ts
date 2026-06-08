@@ -123,6 +123,11 @@ async function handleCallbackQuery(callbackQuery: any, bot: any) {
     if (notJoined.length === 0) {
       // User has joined all channels - delete the warning message
       await deleteMessage(bot.token, message.chat.id, message.message_id)
+      // Also clear our tracking record so future warning sends don't try to
+      // delete this already-gone message id.
+      try {
+        await Counter.deleteOne({ key: `forcejoin_warn_${message.chat.id}_${user.id}` })
+      } catch { /* ignore */ }
       await answerCallbackQuery(bot.token, callbackQuery.id, '✅ Verifikasi berhasil! Kamu bisa kirim pesan sekarang.')
 
       // Send success message (skip if disabled)
@@ -1080,6 +1085,21 @@ async function sendForceJoinWarning(
     callback_data: `verify_join_${user.id}`,
   }])
 
+  // De-spam previous warning: a single not-yet-joined member can send several
+  // messages quickly, each producing a fresh warning. Without cleanup the chat
+  // fills with duplicates. We track the last warning's message_id per
+  // (chat, user) and delete the old one before sending the new one.
+  // Storage piggybacks on the existing Counter collection (count = message_id,
+  // firstMsg = sent-at) so no schema migration needed.
+  const warnKey = `forcejoin_warn_${chatId}_${user.id}`
+  try {
+    const prev: any = await Counter.findOne({ key: warnKey })
+    if (prev && prev.count) {
+      // Best-effort: ignore failures (already deleted, expired, etc.)
+      await deleteMessage(token, chatId, prev.count)
+    }
+  } catch { /* fall through and still send the new warning */ }
+
   try {
     const res = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
       method: 'POST',
@@ -1094,10 +1114,26 @@ async function sendForceJoinWarning(
 
     const data = await res.json()
 
-    // Auto-delete warning after 30 seconds
     if (data.ok) {
+      const newMessageId = data.result.message_id
+      // Record the new warning's message_id so the next spammed message can
+      // delete it before posting its own warning.
+      try {
+        await Counter.updateOne(
+          { key: warnKey },
+          { $set: { key: warnKey, count: newMessageId, firstMsg: Date.now() } },
+          { upsert: true }
+        )
+      } catch { /* ignore */ }
+
+      // Auto-delete warning after 30 seconds. Conditional Counter cleanup
+      // ensures we don't wipe a newer warning's record (i.e. don't delete the
+      // pointer if the user spammed again and a fresher warning replaced it).
       setTimeout(async () => {
-        await deleteMessage(token, chatId, data.result.message_id)
+        await deleteMessage(token, chatId, newMessageId)
+        try {
+          await Counter.deleteOne({ key: warnKey, count: newMessageId })
+        } catch { /* ignore */ }
       }, 30000)
     }
   } catch (error) {
