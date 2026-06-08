@@ -32,3 +32,5 @@ module.exports = nextConfig
 // redeploy: welcomedebug v3 marker
 // redeploy: GET webhook version endpoint
 // redeploy: rebuild welcome message (bersih, hapus debug)
+
+// redeploy: welcome dedup atomic (no double-send) + skip greeting on join + /welcomedebug
