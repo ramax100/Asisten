@@ -2,9 +2,43 @@ import { NextRequest, NextResponse } from 'next/server'
 import connectDB from '@/lib/mongodb'
 import Bot from '@/lib/models/Bot'
 import Counter from '@/lib/models/Counter'
+import GreetingDedup from '@/lib/models/GreetingDedup'
+import { getGreetingSlot, getWibDateKey, resolveGreetingText, greetingDedupKey } from '@/lib/greetings'
 import { handleCommand } from './handleCommand'
 
 export const dynamic = 'force-dynamic'
+
+// Opportunistic greeting: fire the current time-slot greeting on the first
+// group activity of that slot. Makes all 4 slots (pagi/siang/sore/malam) work
+// automatically without depending on an hourly external cron. Dedup shares the
+// same key with the cron, so a slot is sent at most once per group per day.
+async function maybeSendGreeting(message: any, bot: any) {
+  try {
+    const chat = message?.chat
+    if (!chat || (chat.type !== 'group' && chat.type !== 'supergroup')) return
+    if (!bot.enabledFeatures || !bot.enabledFeatures.includes('greeting')) return
+
+    const slot = getGreetingSlot()
+    const text = resolveGreetingText(bot, slot)
+    if (text === null) return // slot disabled
+
+    const key = greetingDedupKey(chat.id, slot, getWibDateKey())
+    const existing = await GreetingDedup.findOneAndUpdate(
+      { key },
+      { $setOnInsert: { key, date: new Date() } },
+      { upsert: true, new: false }
+    )
+    if (existing) return // already sent this slot today
+
+    const res = await fetch(`https://api.telegram.org/bot${bot.token}/sendMessage`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ chat_id: chat.id, text, parse_mode: 'HTML' }),
+    })
+    const data = await res.json()
+    if (!data.ok) await GreetingDedup.deleteOne({ key }) // release for retry
+  } catch { /* never block message handling */ }
+}
 
 export async function POST(
   request: NextRequest,
@@ -23,6 +57,9 @@ export async function POST(
     // Handle different update types
     if (update.message) {
       const msgText = update.message.text || ''
+
+      // Opportunistic greeting on group activity (runs for any message type)
+      await maybeSendGreeting(update.message, bot)
 
       // Check for new member join
       if (update.message.new_chat_members) {

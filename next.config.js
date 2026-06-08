@@ -22,3 +22,4 @@ module.exports = nextConfig
 // redeploy: fitur kirim pesan bebas lewat panel
 // redeploy: Kirim Pesan jadi halaman sidebar dengan pemilih bot
 // redeploy: dukung kirim foto via upload di Kirim Pesan
+// redeploy: sapaan 4 slot via webhook activity + dedup tahan seharian
