@@ -567,7 +567,8 @@ async function handleMessage(message: any, bot: any) {
   }
 
   // === FORCE JOIN CHECK ===
-  if (hasForceJoin) {
+  // Respect the on/off toggle: only enforce when forceJoinEnabled is not false.
+  if (hasForceJoin && bot.forceJoinEnabled !== false) {
     if (bot.channels && bot.channels.length > 0) {
       // Skip forwarded messages from our own channels
       if (message.forward_from_chat) {

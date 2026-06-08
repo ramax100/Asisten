@@ -40,6 +40,20 @@ export async function GET(
       detail: getMeData.ok ? `@${getMeData.result.username}` : getMeData.description,
     })
 
+    // 1b. Privacy mode - if ON, the bot does NOT receive normal group messages,
+    // so Force Join / Anti-Spam / Banned Words cannot work. Must be turned OFF
+    // via @BotFather (/setprivacy -> Disable).
+    if (getMeData.ok) {
+      const canReadAll = getMeData.result.can_read_all_group_messages === true
+      results.checks.push({
+        name: 'Privacy Mode',
+        status: canReadAll ? 'ok' : 'error',
+        detail: canReadAll
+          ? 'Nonaktif (bot bisa baca semua pesan grup) ✓'
+          : 'AKTIF! Bot tidak menerima pesan grup biasa. Buka @BotFather → /setprivacy → pilih bot → Disable, lalu keluarkan & masukkan kembali bot ke grup.',
+      })
+    }
+
     // 2. Check current webhook
     const webhookInfoRes = await fetch(`https://api.telegram.org/bot${bot.token}/getWebhookInfo`)
     const webhookInfoData = await webhookInfoRes.json()
@@ -73,15 +87,28 @@ export async function GET(
       })
     }
 
-    // 5. Check channels accessible
+    // 5. Check channels accessible + bot must be ADMIN to verify members
     let channelOk = 0
     let channelFail = 0
+    const tgBotIdForCh = getMeData.ok ? getMeData.result.id : Number(String(bot.token).split(':')[0])
     for (const channel of bot.channels) {
       try {
         const res = await fetch(`https://api.telegram.org/bot${bot.token}/getChat?chat_id=${channel.channelId}`)
         const data = await res.json()
         if (data.ok) channelOk++
         else channelFail++
+
+        // Verify bot is admin in the channel (needed to read member status)
+        const memRes = await fetch(`https://api.telegram.org/bot${bot.token}/getChatMember?chat_id=${channel.channelId}&user_id=${tgBotIdForCh}`)
+        const memData = await memRes.json()
+        const isAdmin = memData.ok && (memData.result.status === 'administrator' || memData.result.status === 'creator')
+        results.checks.push({
+          name: `Force Join: ${channel.channelTitle}`,
+          status: isAdmin ? 'ok' : 'error',
+          detail: isAdmin
+            ? 'Bot admin di channel - bisa cek keanggotaan ✓'
+            : 'Bot BUKAN admin di channel ini. Force Join tidak bisa memverifikasi member. Jadikan bot admin di channel.',
+        })
       } catch { channelFail++ }
     }
     if (bot.channels.length > 0) {
