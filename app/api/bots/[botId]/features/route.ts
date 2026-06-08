@@ -93,6 +93,16 @@ export async function PATCH(
       bot.antiForwardWarningMessage = message || ''
     } else if (feature === 'anti_forward_mute_message') {
       bot.antiForwardMuteMessage = message || ''
+    } else if (feature === 'moderation_mute_message') {
+      bot.moderationMuteMessage = message || ''
+    } else if (feature === 'moderation_unmute_message') {
+      bot.moderationUnmuteMessage = message || ''
+    } else if (feature === 'moderation_kick_message') {
+      bot.moderationKickMessage = message || ''
+    } else if (feature === 'moderation_ban_message') {
+      bot.moderationBanMessage = message || ''
+    } else if (feature === 'moderation_unban_message') {
+      bot.moderationUnbanMessage = message || ''
     }
 
     await bot.save()
@@ -160,6 +170,12 @@ export async function DELETE(
     } else if (feature === 'anti_forward') {
       bot.antiForwardWarningLimit = 3
       bot.antiForwardMuteDuration = '1h'
+    } else if (feature === 'moderation') {
+      bot.moderationMuteMessage = ''
+      bot.moderationUnmuteMessage = ''
+      bot.moderationKickMessage = ''
+      bot.moderationBanMessage = ''
+      bot.moderationUnbanMessage = ''
     }
 
     await bot.save()

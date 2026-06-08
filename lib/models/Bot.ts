@@ -69,6 +69,12 @@ const BotSchema = new Schema<IBot>(
     antiForwardMuteDuration: { type: String, default: '1h' },
     antiForwardWarningMessage: { type: String, default: '' },
     antiForwardMuteMessage: { type: String, default: '' },
+    // Custom text for moderation commands (empty = use built-in default).
+    moderationMuteMessage: { type: String, default: '' },
+    moderationUnmuteMessage: { type: String, default: '' },
+    moderationKickMessage: { type: String, default: '' },
+    moderationBanMessage: { type: String, default: '' },
+    moderationUnbanMessage: { type: String, default: '' },
     enabledFeatures: [{ type: String }],
   },
   { timestamps: true }

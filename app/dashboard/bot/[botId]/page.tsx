@@ -296,6 +296,77 @@ function BannedWordsSection({ botId, bot, confirmDelete, setConfirmDelete, handl
   )
 }
 
+// Moderation custom messages editor (mute/unmute/kick/ban/unban)
+function ModerationMessages({ botId, bot, fetchBot }: any) {
+  const ACTIONS: { key: string; feature: string; label: string; icon: string; placeholder: string }[] = [
+    { key: 'moderationMuteMessage', feature: 'moderation_mute_message', label: 'Mute', icon: '🔇', placeholder: '🔇 {mention} di-mute selama {duration}.' },
+    { key: 'moderationUnmuteMessage', feature: 'moderation_unmute_message', label: 'Unmute', icon: '🔊', placeholder: '🔊 {mention} telah di-unmute.' },
+    { key: 'moderationKickMessage', feature: 'moderation_kick_message', label: 'Kick', icon: '👢', placeholder: '👢 {mention} telah di-kick.' },
+    { key: 'moderationBanMessage', feature: 'moderation_ban_message', label: 'Ban', icon: '🚫', placeholder: '🚫 {mention} telah di-ban.' },
+    { key: 'moderationUnbanMessage', feature: 'moderation_unban_message', label: 'Unban', icon: '✅', placeholder: '✅ {mention} telah di-unban.' },
+  ]
+
+  const [open, setOpen] = useState(false)
+  const [drafts, setDrafts] = useState<Record<string, string>>(() => {
+    const d: Record<string, string> = {}
+    ACTIONS.forEach((a) => { d[a.feature] = bot[a.key] || '' })
+    return d
+  })
+  const [savingKey, setSavingKey] = useState('')
+
+  const save = async (feature: string) => {
+    setSavingKey(feature)
+    await fetch(`/api/bots/${botId}/features`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ feature, message: drafts[feature] }),
+    })
+    setSavingKey('')
+    fetchBot()
+  }
+
+  return (
+    <div className="mt-4 border-t border-slate-100 pt-4">
+      <button onClick={() => setOpen(!open)} className="w-full flex items-center justify-between text-left">
+        <span className="text-xs font-semibold text-slate-700">✏️ Custom Teks Pesan Moderasi</span>
+        <span className="text-[10px] text-slate-400">{open ? 'Tutup ▲' : 'Atur ▼'}</span>
+      </button>
+      {open && (
+        <div className="mt-3 space-y-3">
+          <p className="text-[10px] text-slate-400">Kosongkan untuk pakai teks default. Variabel: {'{mention}'} {'{name}'} {'{username}'} {'{id}'} {'{duration}'} (khusus mute).</p>
+          {ACTIONS.map((a) => (
+            <div key={a.feature} className="bg-slate-50 rounded-lg border border-slate-100 p-3">
+              <div className="flex items-center justify-between mb-1.5">
+                <span className="text-xs font-medium text-slate-700">{a.icon} {a.label}</span>
+                {bot[a.key] ? (
+                  <span className="text-[9px] bg-emerald-100 text-emerald-600 px-1 py-0.5 rounded font-medium">Custom</span>
+                ) : (
+                  <span className="text-[9px] bg-slate-100 text-slate-400 px-1 py-0.5 rounded font-medium">Default</span>
+                )}
+              </div>
+              <textarea
+                value={drafts[a.feature]}
+                onChange={(e) => setDrafts({ ...drafts, [a.feature]: e.target.value })}
+                placeholder={a.placeholder}
+                rows={2}
+                className="w-full px-2.5 py-1.5 border border-slate-200 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-indigo-300 resize-none bg-white"
+              />
+              <div className="flex gap-2 mt-1.5">
+                <button onClick={() => save(a.feature)} disabled={savingKey === a.feature} className="text-[10px] bg-indigo-600 hover:bg-indigo-700 disabled:bg-slate-300 text-white px-2.5 py-1 rounded-lg">
+                  {savingKey === a.feature ? '...' : 'Simpan'}
+                </button>
+                {bot[a.key] && (
+                  <button onClick={() => { setDrafts({ ...drafts, [a.feature]: '' }); save(a.feature) }} className="text-[10px] text-red-400 hover:text-red-600">Hapus (pakai default)</button>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
 // Anti-Spam Section
 function AntiSpamSection({ botId, bot, confirmDelete, setConfirmDelete, handleDeleteFeature, fetchBot }: any) {
   const [limit, setLimit] = useState(bot.antiSpamLimit || 5)
@@ -1332,6 +1403,9 @@ export default function BotSettingsPage() {
               <div className="mt-4 p-3 bg-amber-50 rounded-lg border border-amber-100">
                 <p className="text-[10px] text-amber-700"><b>Cara pakai:</b> Reply pesan member → ketik command (contoh: /mute 1h)</p>
               </div>
+
+              {/* Custom text per aksi moderasi */}
+              <ModerationMessages botId={botId} bot={bot} fetchBot={fetchBot} />
             </div>
           </section>
         )}

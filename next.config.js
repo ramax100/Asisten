@@ -18,3 +18,4 @@ module.exports = nextConfig
 // redeploy: optimize anti-spam latency (fewer DB ops + parallel mute)
 // redeploy: 3 variasi acak sapaan otomatis pagi/siang/sore/malam
 // redeploy: panel multi-variasi sapaan (tampil 3 default + bisa tambah)
+// redeploy: teks custom moderasi mute/unmute/kick/ban/unban

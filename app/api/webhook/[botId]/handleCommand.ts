@@ -74,6 +74,16 @@ export async function handleCommand(message: any, bot: any) {
 
   const targetName = targetUser.first_name || 'User'
   const targetMention = `<a href="tg://user?id=${targetUser.id}">${targetName}</a>`
+  const targetUsername = targetUser.username ? `@${targetUser.username}` : targetName
+
+  // Render a custom message template with available variables.
+  const renderMsg = (tpl: string, duration?: string) =>
+    tpl
+      .replace(/{mention}/g, targetMention)
+      .replace(/{name}/g, targetName)
+      .replace(/{username}/g, targetUsername)
+      .replace(/{id}/g, String(targetUser.id))
+      .replace(/{duration}/g, duration || '')
 
   if (command === '/mute') {
     const duration = parts[1] || '1h'
@@ -110,7 +120,10 @@ export async function handleCommand(message: any, bot: any) {
 
     const data = await res.json()
     if (data.ok) {
-      await sendMsg(bot.token, chat.id, `🔇 ${targetMention} di-mute selama <b>${duration}</b>.`)
+      const msg = bot.moderationMuteMessage
+        ? renderMsg(bot.moderationMuteMessage, duration)
+        : `🔇 ${targetMention} di-mute selama <b>${duration}</b>.`
+      await sendMsg(bot.token, chat.id, msg)
     } else {
       await sendMsg(bot.token, chat.id, `❌ Gagal mute: ${data.description}`)
     }
@@ -139,7 +152,10 @@ export async function handleCommand(message: any, bot: any) {
 
     const data = await res.json()
     if (data.ok) {
-      await sendMsg(bot.token, chat.id, `🔊 ${targetMention} telah di-unmute.`)
+      const msg = bot.moderationUnmuteMessage
+        ? renderMsg(bot.moderationUnmuteMessage)
+        : `🔊 ${targetMention} telah di-unmute.`
+      await sendMsg(bot.token, chat.id, msg)
     } else {
       await sendMsg(bot.token, chat.id, `❌ Gagal unmute: ${data.description}`)
     }
@@ -158,7 +174,10 @@ export async function handleCommand(message: any, bot: any) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ chat_id: chat.id, user_id: targetUser.id, only_if_banned: true }),
       })
-      await sendMsg(bot.token, chat.id, `👢 ${targetMention} telah di-kick.`)
+      const msg = bot.moderationKickMessage
+        ? renderMsg(bot.moderationKickMessage)
+        : `👢 ${targetMention} telah di-kick.`
+      await sendMsg(bot.token, chat.id, msg)
     } else {
       await sendMsg(bot.token, chat.id, `❌ Gagal kick: ${banData.description}`)
     }
@@ -172,7 +191,10 @@ export async function handleCommand(message: any, bot: any) {
 
     const data = await res.json()
     if (data.ok) {
-      await sendMsg(bot.token, chat.id, `🚫 ${targetMention} telah di-ban.`)
+      const msg = bot.moderationBanMessage
+        ? renderMsg(bot.moderationBanMessage)
+        : `🚫 ${targetMention} telah di-ban.`
+      await sendMsg(bot.token, chat.id, msg)
     } else {
       await sendMsg(bot.token, chat.id, `❌ Gagal ban: ${data.description}`)
     }
@@ -186,7 +208,10 @@ export async function handleCommand(message: any, bot: any) {
 
     const data = await res.json()
     if (data.ok) {
-      await sendMsg(bot.token, chat.id, `✅ ${targetMention} telah di-unban.`)
+      const msg = bot.moderationUnbanMessage
+        ? renderMsg(bot.moderationUnbanMessage)
+        : `✅ ${targetMention} telah di-unban.`
+      await sendMsg(bot.token, chat.id, msg)
     } else {
       await sendMsg(bot.token, chat.id, `❌ Gagal unban: ${data.description}`)
     }

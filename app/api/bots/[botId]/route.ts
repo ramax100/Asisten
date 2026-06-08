@@ -59,6 +59,11 @@ export async function GET(
       antiForwardMuteDuration: bot.antiForwardMuteDuration || '1h',
       antiForwardWarningMessage: bot.antiForwardWarningMessage || '',
       antiForwardMuteMessage: bot.antiForwardMuteMessage || '',
+      moderationMuteMessage: bot.moderationMuteMessage || '',
+      moderationUnmuteMessage: bot.moderationUnmuteMessage || '',
+      moderationKickMessage: bot.moderationKickMessage || '',
+      moderationBanMessage: bot.moderationBanMessage || '',
+      moderationUnbanMessage: bot.moderationUnbanMessage || '',
       enabledFeatures: bot.enabledFeatures || [],
     }
 
