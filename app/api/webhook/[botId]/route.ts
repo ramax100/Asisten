@@ -493,14 +493,14 @@ async function handleMessage(message: any, bot: any) {
   }
 
   const features = bot.enabledFeatures || []
-  // Always enable features - bypass enabledFeatures check completely
-  // Anti-spam runs if the feature is enabled OR the legacy boolean flag is set.
-  // (Previously only the boolean was checked, so anti-spam silently did nothing
-  // whenever antiSpamEnabled wasn't persisted even though the feature was added.)
-  const hasAntiSpam = bot.antiSpamEnabled === true || features.includes('anti_spam')
-  const hasAntiForward = true
-  const hasBannedWords = bot.bannedWords && bot.bannedWords.length > 0
-  const hasForceJoin = bot.channels && bot.channels.length > 0
+  // Each feature must be explicitly enabled on this bot. In a multi-bot group,
+  // bots that haven't been given a feature stay completely silent for it -
+  // no actions, no error replies. Anti-spam additionally accepts the legacy
+  // boolean flag for backward-compat with older configs.
+  const hasAntiSpam = features.includes('anti_spam') || bot.antiSpamEnabled === true
+  const hasAntiForward = features.includes('anti_forward')
+  const hasBannedWords = features.includes('banned_words') && bot.bannedWords && bot.bannedWords.length > 0
+  const hasForceJoin = features.includes('force_join') && bot.channels && bot.channels.length > 0
   const userName = user.first_name || 'User'
   const userMention = `<a href="tg://user?id=${user.id}">${userName}</a>`
 

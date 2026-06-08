@@ -15,6 +15,11 @@ export async function handleCommand(message: any, bot: any) {
   // Only handle known commands
   if (!['/mute', '/unmute', '/kick', '/ban', '/unban'].includes(command)) return
 
+  // Multi-bot: only the bot that has the moderation feature enabled responds.
+  // Other bots in the same group stay completely silent (no replies at all).
+  const features = bot.enabledFeatures || []
+  if (!features.includes('moderation')) return
+
   // === ADMIN CHECK (re-enabled) ===
   // Allow if: anonymous admin OR creator OR administrator
   const isAnonymousAdmin = message.sender_chat && String(message.sender_chat.id) === String(chat.id)
@@ -127,7 +132,8 @@ export async function handleCommand(message: any, bot: any) {
     } else if (!isPermissionError(data.description)) {
       // Permission errors are silenced so other bots in the group don't spam
       // "not enough rights" - only the bot that actually has the right replies.
-      await sendMsg(bot.token, chat.id, `❌ Gagal mute: ${data.description}`)
+      // (kept for safety even though feature gate above already guards this)
+      console.error('mute failed:', data.description)
     }
 
   } else if (command === '/unmute') {
@@ -159,7 +165,7 @@ export async function handleCommand(message: any, bot: any) {
         : `🔊 ${targetMention} telah di-unmute.`
       await sendMsg(bot.token, chat.id, msg)
     } else if (!isPermissionError(data.description)) {
-      await sendMsg(bot.token, chat.id, `❌ Gagal unmute: ${data.description}`)
+      console.error('unmute failed:', data.description)
     }
 
   } else if (command === '/kick') {
@@ -181,7 +187,7 @@ export async function handleCommand(message: any, bot: any) {
         : `👢 ${targetMention} telah di-kick.`
       await sendMsg(bot.token, chat.id, msg)
     } else if (!isPermissionError(banData.description)) {
-      await sendMsg(bot.token, chat.id, `❌ Gagal kick: ${banData.description}`)
+      console.error('kick failed:', banData.description)
     }
 
   } else if (command === '/ban') {
@@ -198,7 +204,7 @@ export async function handleCommand(message: any, bot: any) {
         : `🚫 ${targetMention} telah di-ban.`
       await sendMsg(bot.token, chat.id, msg)
     } else if (!isPermissionError(data.description)) {
-      await sendMsg(bot.token, chat.id, `❌ Gagal ban: ${data.description}`)
+      console.error('ban failed:', data.description)
     }
 
   } else if (command === '/unban') {
@@ -215,7 +221,7 @@ export async function handleCommand(message: any, bot: any) {
         : `✅ ${targetMention} telah di-unban.`
       await sendMsg(bot.token, chat.id, msg)
     } else if (!isPermissionError(data.description)) {
-      await sendMsg(bot.token, chat.id, `❌ Gagal unban: ${data.description}`)
+      console.error('unban failed:', data.description)
     }
   }
 }
