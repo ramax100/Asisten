@@ -4,10 +4,14 @@ import { useEffect, useState } from 'react'
 import { useRouter, useParams } from 'next/navigation'
 
 // Greeting Editor sub-component
-function GreetingEditor({ waktu, value, botId, onSaved }: { waktu: string; value: string; botId: string; onSaved: () => void }) {
+function GreetingEditor({ waktu, value, botId, onSaved, templates }: { waktu: string; value: string; botId: string; onSaved: () => void; templates: string[] }) {
   const [editing, setEditing] = useState(false)
   const [text, setText] = useState(value)
   const [saving, setSaving] = useState(false)
+  const [newTemplate, setNewTemplate] = useState('')
+  const [addingTemplate, setAddingTemplate] = useState(false)
+  const [editingIdx, setEditingIdx] = useState<number | null>(null)
+  const [editText, setEditText] = useState('')
 
   useEffect(() => { setText(value) }, [value])
 
@@ -42,37 +46,136 @@ function GreetingEditor({ waktu, value, botId, onSaved }: { waktu: string; value
     onSaved()
   }
 
-  if (value === '' && !editing) {
-    // Check if parent marked as disabled
-    return (
-      <div className="flex gap-2">
-        <button onClick={() => setEditing(true)} className="text-[10px] text-indigo-500 hover:text-indigo-700">Edit</button>
-        <button onClick={handleDisable} className="text-[10px] text-red-400 hover:text-red-600">Nonaktifkan</button>
-      </div>
-    )
+  const handleAddTemplate = async () => {
+    if (!newTemplate.trim()) return
+    setAddingTemplate(true)
+    await fetch(`/api/bots/${botId}/features`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ feature: 'greeting_template_add', message: waktu, text: newTemplate.trim() }),
+    })
+    setNewTemplate('')
+    setAddingTemplate(false)
+    onSaved()
   }
 
-  if (editing) {
-    return (
-      <div className="mt-2">
-        <textarea value={text} onChange={(e) => setText(e.target.value)} placeholder={`Selamat ${waktu} semuanya! Semoga hari ini menyenangkan 😊`} rows={2} className="w-full px-2.5 py-1.5 border border-slate-200 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-indigo-300 resize-none bg-white" />
-        <div className="flex gap-2 mt-1.5">
-          <button onClick={handleSave} disabled={saving} className="text-[10px] bg-indigo-600 text-white px-2 py-0.5 rounded hover:bg-indigo-700">{saving ? '...' : 'Simpan'}</button>
-          <button onClick={handleDisable} className="text-[10px] text-red-500 hover:text-red-700">Nonaktifkan</button>
-          <button onClick={() => setEditing(false)} className="text-[10px] text-slate-400 hover:text-slate-600">Batal</button>
-        </div>
-      </div>
-    )
+  const handleRemoveTemplate = async (index: number) => {
+    await fetch(`/api/bots/${botId}/features`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ feature: 'greeting_template_remove', message: waktu, index }),
+    })
+    onSaved()
   }
 
-  // Has value set
+  const handleUpdateTemplate = async (index: number) => {
+    if (!editText.trim()) return
+    await fetch(`/api/bots/${botId}/features`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ feature: 'greeting_template_update', message: waktu, index, text: editText.trim() }),
+    })
+    setEditingIdx(null)
+    setEditText('')
+    onSaved()
+  }
+
   return (
     <div>
-      <p className="text-[10px] text-slate-500 italic mb-1 truncate">"{value}"</p>
-      <div className="flex gap-2">
-        <button onClick={() => setEditing(true)} className="text-[10px] text-indigo-500 hover:text-indigo-700">Edit</button>
-        <button onClick={handleEnable} className="text-[10px] text-emerald-500 hover:text-emerald-700">Reset Default</button>
-        <button onClick={handleDisable} className="text-[10px] text-red-400 hover:text-red-600">Nonaktifkan</button>
+      {/* Single message controls (legacy/fallback) */}
+      {value === '' && !editing && templates.length === 0 && (
+        <div className="flex gap-2">
+          <button onClick={() => setEditing(true)} className="text-[10px] text-indigo-500 hover:text-indigo-700">Edit</button>
+          <button onClick={handleDisable} className="text-[10px] text-red-400 hover:text-red-600">Nonaktifkan</button>
+        </div>
+      )}
+
+      {editing && (
+        <div className="mt-2">
+          <textarea value={text} onChange={(e) => setText(e.target.value)} placeholder={`Selamat ${waktu} semuanya! Semoga hari ini menyenangkan`} rows={2} className="w-full px-2.5 py-1.5 border border-slate-200 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-indigo-300 resize-none bg-white" />
+          <div className="flex gap-2 mt-1.5">
+            <button onClick={handleSave} disabled={saving} className="text-[10px] bg-indigo-600 text-white px-2 py-0.5 rounded hover:bg-indigo-700">{saving ? '...' : 'Simpan'}</button>
+            <button onClick={handleDisable} className="text-[10px] text-red-500 hover:text-red-700">Nonaktifkan</button>
+            <button onClick={() => setEditing(false)} className="text-[10px] text-slate-400 hover:text-slate-600">Batal</button>
+          </div>
+        </div>
+      )}
+
+      {value && !editing && templates.length === 0 && (
+        <div>
+          <p className="text-[10px] text-slate-500 italic mb-1 truncate">&quot;{value}&quot;</p>
+          <div className="flex gap-2">
+            <button onClick={() => setEditing(true)} className="text-[10px] text-indigo-500 hover:text-indigo-700">Edit</button>
+            <button onClick={handleEnable} className="text-[10px] text-emerald-500 hover:text-emerald-700">Reset Default</button>
+            <button onClick={handleDisable} className="text-[10px] text-red-400 hover:text-red-600">Nonaktifkan</button>
+          </div>
+        </div>
+      )}
+
+      {/* Templates Section */}
+      <div className="mt-3">
+        <div className="flex items-center justify-between mb-2">
+          <p className="text-[10px] font-semibold text-slate-600 uppercase tracking-wide">Variasi Teks Random ({templates.length})</p>
+          {templates.length === 0 && !editing && !value && (
+            <button onClick={handleDisable} className="text-[10px] text-red-400 hover:text-red-600">Nonaktifkan</button>
+          )}
+        </div>
+
+        {templates.length > 0 && (
+          <div className="space-y-1.5 mb-2">
+            {templates.map((tpl, idx) => (
+              <div key={idx} className="flex items-start gap-2 bg-white rounded-lg border border-slate-100 px-2.5 py-2">
+                {editingIdx === idx ? (
+                  <div className="flex-1">
+                    <textarea value={editText} onChange={(e) => setEditText(e.target.value)} rows={2} className="w-full px-2 py-1 border border-indigo-200 rounded text-xs focus:outline-none focus:ring-2 focus:ring-indigo-300 resize-none" />
+                    <div className="flex gap-1.5 mt-1">
+                      <button onClick={() => handleUpdateTemplate(idx)} className="text-[10px] bg-indigo-600 text-white px-2 py-0.5 rounded">Simpan</button>
+                      <button onClick={() => setEditingIdx(null)} className="text-[10px] text-slate-400">Batal</button>
+                    </div>
+                  </div>
+                ) : (
+                  <>
+                    <span className="text-[10px] text-slate-400 mt-0.5 font-mono">{idx + 1}.</span>
+                    <p className="flex-1 text-xs text-slate-600 break-words">{tpl}</p>
+                    <div className="flex gap-1 flex-shrink-0">
+                      <button onClick={() => { setEditingIdx(idx); setEditText(tpl) }} className="text-[10px] text-indigo-500 hover:text-indigo-700">Edit</button>
+                      <button onClick={() => handleRemoveTemplate(idx)} className="text-[10px] text-red-400 hover:text-red-600">Hapus</button>
+                    </div>
+                  </>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Add new template */}
+        <div className="flex gap-2">
+          <input
+            type="text"
+            value={newTemplate}
+            onChange={(e) => setNewTemplate(e.target.value)}
+            onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleAddTemplate() } }}
+            placeholder={`Tambah variasi sapaan ${waktu}...`}
+            className="flex-1 px-2.5 py-1.5 border border-slate-200 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-indigo-300 bg-white"
+          />
+          <button
+            onClick={handleAddTemplate}
+            disabled={addingTemplate || !newTemplate.trim()}
+            className="text-[10px] bg-emerald-600 hover:bg-emerald-700 disabled:bg-slate-300 text-white px-2.5 py-1.5 rounded-lg font-medium transition-colors"
+          >
+            {addingTemplate ? '...' : '+ Tambah'}
+          </button>
+        </div>
+        <p className="text-[10px] text-slate-400 mt-1.5">Bot akan memilih salah satu teks secara acak setiap kali mengirim sapaan.</p>
+
+        {/* Actions when templates exist */}
+        {templates.length > 0 && (
+          <div className="flex gap-2 mt-2 pt-2 border-t border-slate-100">
+            {!editing && <button onClick={() => setEditing(true)} className="text-[10px] text-indigo-500 hover:text-indigo-700">Edit Pesan Utama</button>}
+            <button onClick={handleEnable} className="text-[10px] text-emerald-500 hover:text-emerald-700">Reset Default</button>
+            <button onClick={handleDisable} className="text-[10px] text-red-400 hover:text-red-600">Nonaktifkan</button>
+          </div>
+        )}
       </div>
     </div>
   )
@@ -411,6 +514,10 @@ interface BotDetail {
   antiForwardWarningMessage: string
   antiForwardMuteMessage: string
   enabledFeatures: string[]
+  greetingTemplatesPagi: string[]
+  greetingTemplatesSiang: string[]
+  greetingTemplatesSore: string[]
+  greetingTemplatesMalam: string[]
   [key: string]: any
 }
 
@@ -1168,6 +1275,8 @@ export default function BotSettingsPage() {
                   const key = `greeting_${waktu}` as string
                   const value = (bot as any)[key] || ''
                   const isDisabled = value === '__disabled__'
+                  const templatesKey = `greetingTemplates${waktu.charAt(0).toUpperCase() + waktu.slice(1)}`
+                  const templates: string[] = (bot as any)[templatesKey] || []
 
                   return (
                     <div key={waktu} className="bg-slate-50 rounded-lg border border-slate-100 p-3">
@@ -1179,6 +1288,8 @@ export default function BotSettingsPage() {
                         </div>
                         {isDisabled ? (
                           <span className="text-[9px] bg-red-100 text-red-500 px-1 py-0.5 rounded font-medium">Nonaktif</span>
+                        ) : templates.length > 0 ? (
+                          <span className="text-[9px] bg-purple-100 text-purple-600 px-1 py-0.5 rounded font-medium">Random ({templates.length})</span>
                         ) : value ? (
                           <span className="text-[9px] bg-emerald-100 text-emerald-600 px-1 py-0.5 rounded font-medium">Custom</span>
                         ) : (
@@ -1190,6 +1301,7 @@ export default function BotSettingsPage() {
                         value={isDisabled ? '' : value}
                         botId={botId}
                         onSaved={fetchBot}
+                        templates={templates}
                       />
                     </div>
                   )
