@@ -78,7 +78,12 @@ export default function DashboardPage() {
       <header className="bg-white border-b border-slate-200 sticky top-0 z-10">
         <div className="max-w-3xl mx-auto px-4 py-3 flex items-center justify-between">
           <h1 className="text-base font-bold text-slate-800">Bot Panel</h1>
-          <button onClick={handleLogout} className="text-xs text-slate-500 hover:text-red-500">Keluar</button>
+          <div className="flex items-center gap-3">
+            <button onClick={() => router.push('/dashboard/send')} className="text-xs font-medium text-indigo-600 hover:text-indigo-700 flex items-center gap-1">
+              <span>📨</span> Kirim Pesan
+            </button>
+            <button onClick={handleLogout} className="text-xs text-slate-500 hover:text-red-500">Keluar</button>
+          </div>
         </div>
       </header>
 
