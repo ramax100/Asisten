@@ -370,7 +370,51 @@ async function handleMessage(message: any, bot: any) {
     }
   }
 
-  // Anti-spam removed - fitur dihapus
+  // === ANTI-SPAM CHECK (sama pola dengan anti-forward yang sudah berfungsi) ===
+  if (hasAntiSpam && features.includes('anti_spam')) {
+    const key = `${chat.id}_${user.id}_spam`
+    const now = Date.now()
+    const intervalMs = (bot.antiSpamInterval || 10) * 1000
+    const limit = bot.antiSpamLimit || 5
+
+    const spamCounter = await getCounter(key)
+
+    let newCount: number
+    if (!spamCounter.firstMsg || (now - spamCounter.firstMsg) > intervalMs) {
+      // Window baru
+      newCount = 1
+      await setCounter(key, 1, now)
+    } else {
+      // Masih dalam window
+      newCount = spamCounter.count + 1
+      await setCounter(key, newCount, spamCounter.firstMsg)
+    }
+
+    if (newCount > limit) {
+      const muteDuration = bot.antiSpamMuteDuration || '5m'
+      const seconds = parseDurationSimple(muteDuration)
+      const untilDate = Math.floor(Date.now() / 1000) + seconds
+
+      await deleteMessage(bot.token, chat.id, message.message_id)
+
+      await fetch(`https://api.telegram.org/bot${bot.token}/restrictChatMember`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          chat_id: chat.id,
+          user_id: user.id,
+          permissions: { can_send_messages: false, can_send_audios: false, can_send_documents: false, can_send_photos: false, can_send_videos: false, can_send_video_notes: false, can_send_voice_notes: false, can_send_polls: false, can_send_other_messages: false, can_add_web_page_previews: false },
+          until_date: untilDate,
+        }),
+      })
+
+      await resetCounter(key)
+      const customMsg = bot.antiSpamMessage || `🚫 ${userMention} di-mute ${muteDuration} karena spam (>${limit} pesan dalam ${bot.antiSpamInterval || 10} detik).`
+      const finalMsg = customMsg.replace(/{mention}/g, userMention).replace(/{name}/g, userName).replace(/{duration}/g, muteDuration).replace(/{limit}/g, String(limit))
+      await sendAutoDeleteMsg(bot.token, chat.id, finalMsg, 10000)
+      return
+    }
+  }
 
   // === FORCE JOIN CHECK ===
   if (hasForceJoin) {

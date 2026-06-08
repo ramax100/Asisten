@@ -233,6 +233,88 @@ function BannedWordsSection({ botId, bot, confirmDelete, setConfirmDelete, handl
   )
 }
 
+// Anti-Spam Section
+function AntiSpamSection({ botId, bot, confirmDelete, setConfirmDelete, handleDeleteFeature, fetchBot }: any) {
+  const [limit, setLimit] = useState(bot.antiSpamLimit || 5)
+  const [spamInterval, setSpamInterval] = useState(bot.antiSpamInterval || 10)
+  const [muteDuration, setMuteDuration] = useState(bot.antiSpamMuteDuration || '5m')
+  const [customMsg, setCustomMsg] = useState(bot.antiSpamMessage || '')
+  const [showEditMsg, setShowEditMsg] = useState(false)
+  const [saving, setSaving] = useState(false)
+
+  const handleSave = async () => {
+    setSaving(true)
+    await fetch(`/api/bots/${botId}/features`, {
+      method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ feature: 'anti_spam_settings', message: JSON.stringify({ limit, interval: spamInterval, muteDuration }) }),
+    })
+    await fetch(`/api/bots/${botId}/features`, {
+      method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ feature: 'anti_spam_message', message: customMsg }),
+    })
+    setSaving(false)
+    fetchBot()
+  }
+
+  return (
+    <section className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+      <div className="px-4 py-3 border-b border-slate-100 flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <span>🚫</span>
+          <h2 className="text-sm font-semibold text-slate-800">Anti-Spam</h2>
+        </div>
+        {confirmDelete === 'anti_spam' ? (
+          <div className="flex items-center gap-2">
+            <button onClick={() => handleDeleteFeature('anti_spam')} className="text-xs bg-red-500 text-white px-2 py-0.5 rounded">Ya</button>
+            <button onClick={() => setConfirmDelete('')} className="text-xs text-slate-400">Batal</button>
+          </div>
+        ) : (
+          <button onClick={() => setConfirmDelete('anti_spam')} className="text-xs text-slate-400 hover:text-red-500 transition-colors">Hapus</button>
+        )}
+      </div>
+      <div className="px-4 py-4">
+        <p className="text-xs text-slate-500 mb-3">Mute member yang mengirim pesan terlalu banyak dalam waktu singkat.</p>
+        <div className="grid grid-cols-3 gap-2 mb-3">
+          <div>
+            <label className="block text-[10px] text-slate-500 mb-1">Batas pesan</label>
+            <input type="number" value={limit} onChange={(e) => setLimit(Number(e.target.value))} min={2} max={50} className="w-full px-2 py-1.5 border border-slate-200 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-indigo-300 bg-slate-50" />
+          </div>
+          <div>
+            <label className="block text-[10px] text-slate-500 mb-1">Dalam (detik)</label>
+            <input type="number" value={spamInterval} onChange={(e) => setSpamInterval(Number(e.target.value))} min={3} max={120} className="w-full px-2 py-1.5 border border-slate-200 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-indigo-300 bg-slate-50" />
+          </div>
+          <div>
+            <label className="block text-[10px] text-slate-500 mb-1">Mute durasi</label>
+            <select value={muteDuration} onChange={(e) => setMuteDuration(e.target.value)} className="w-full px-2 py-1.5 border border-slate-200 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-indigo-300 bg-slate-50">
+              <option value="1m">1 menit</option>
+              <option value="5m">5 menit</option>
+              <option value="15m">15 menit</option>
+              <option value="30m">30 menit</option>
+              <option value="1h">1 jam</option>
+              <option value="1d">1 hari</option>
+            </select>
+          </div>
+        </div>
+        <div className="mb-3">
+          <button onClick={() => setShowEditMsg(!showEditMsg)} className={`text-xs px-2.5 py-1 rounded-lg border transition-colors ${showEditMsg ? 'border-indigo-300 bg-indigo-50 text-indigo-600' : 'border-slate-200 text-slate-500 hover:text-indigo-500'}`}>
+            Custom Pesan {customMsg ? '●' : ''}
+          </button>
+          {showEditMsg && (
+            <div className="mt-2">
+              <textarea value={customMsg} onChange={(e) => setCustomMsg(e.target.value)} placeholder="🚫 {mention} di-mute {duration} karena spam!" rows={2} className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-indigo-300 resize-none bg-slate-50" />
+              <p className="text-[10px] text-slate-400 mt-1">Variabel: {'{mention}'} {'{name}'} {'{duration}'} {'{limit}'}</p>
+            </div>
+          )}
+        </div>
+        <button onClick={handleSave} disabled={saving} className="px-3.5 py-1.5 bg-indigo-600 hover:bg-indigo-700 disabled:bg-slate-300 text-white text-xs font-medium rounded-lg">
+          {saving ? 'Menyimpan...' : 'Simpan'}
+        </button>
+        <p className="text-[10px] text-slate-400 mt-2">Saat ini: mute jika kirim &gt;{bot.antiSpamLimit || 5} pesan dalam {bot.antiSpamInterval || 10} detik</p>
+      </div>
+    </section>
+  )
+}
+
 // Anti-Forward Section
 function AntiForwardSection({ botId, bot, confirmDelete, setConfirmDelete, handleDeleteFeature, fetchBot }: any) {
   const [warningLimit, setWarningLimit] = useState(bot.antiForwardWarningLimit || 3)
@@ -345,6 +427,7 @@ const ALL_FEATURES: Feature[] = [
   { id: 'force_join', name: 'Force Join Channel', desc: 'Wajibkan member join channel sebelum kirim pesan', icon: '🔒', category: 'Proteksi' },
   { id: 'protect_group', name: 'Proteksi Grup', desc: 'Tambahkan grup yang ingin dilindungi', icon: '🛡', category: 'Proteksi' },
   { id: 'anti_forward', name: 'Anti-Forward', desc: 'Larang forward pesan dari luar grup (peringatan 3x lalu mute)', icon: '↩️', category: 'Proteksi' },
+  { id: 'anti_spam', name: 'Anti-Spam', desc: 'Mute member yang kirim pesan terlalu cepat/banyak', icon: '🚫', category: 'Proteksi' },
   { id: 'banned_words', name: 'Kata Terlarang', desc: 'Hapus pesan yang mengandung kata tertentu + mute', icon: '🤬', category: 'Proteksi' },
   { id: 'welcome', name: 'Welcome Message', desc: 'Sambut member baru yang masuk grup', icon: '👋', category: 'Pesan Otomatis' },
   { id: 'greeting', name: 'Ucapan Otomatis', desc: 'Kirim ucapan selamat pagi, siang, sore, malam', icon: '🕐', category: 'Pesan Otomatis' },
@@ -427,8 +510,7 @@ export default function BotSettingsPage() {
 
   useEffect(() => {
     if (bot) {
-      // Filter out removed features (anti_spam was removed)
-      setEnabledFeatures((bot.enabledFeatures || []).filter((f: string) => f !== 'anti_spam'))
+      setEnabledFeatures(bot.enabledFeatures || [])
       setWarningText(bot.forceJoinMessage || '')
       setSuccessText(bot.successMessage || '')
       setWelcomeText(bot.welcomeMessage || '')
@@ -1193,8 +1275,13 @@ export default function BotSettingsPage() {
           <AntiForwardSection botId={botId} bot={bot} confirmDelete={confirmDelete} setConfirmDelete={setConfirmDelete} handleDeleteFeature={handleDeleteFeature} fetchBot={fetchBot} />
         )}
 
+        {/* ANTI-SPAM */}
+        {activeTab === 'channel' && enabledFeatures.includes('anti_spam') && (
+          <AntiSpamSection botId={botId} bot={bot} confirmDelete={confirmDelete} setConfirmDelete={setConfirmDelete} handleDeleteFeature={handleDeleteFeature} fetchBot={fetchBot} />
+        )}
+
         {/* ===== EMPTY STATE PER TAB ===== */}
-        {activeTab === 'channel' && !enabledFeatures.includes('force_join') && !enabledFeatures.includes('protect_group') && !enabledFeatures.includes('anti_forward') && (
+        {activeTab === 'channel' && !enabledFeatures.includes('force_join') && !enabledFeatures.includes('protect_group') && !enabledFeatures.includes('anti_forward') && !enabledFeatures.includes('anti_spam') && (
           <div className="bg-white rounded-xl border border-slate-200 p-8 text-center">
             <p className="text-slate-500 text-sm">Belum ada fitur Channel & Grup</p>
             <p className="text-slate-400 text-xs mt-1">Klik "+ Tambah Fitur" untuk menambahkan</p>
