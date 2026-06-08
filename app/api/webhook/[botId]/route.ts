@@ -206,8 +206,12 @@ async function sendWelcome(chat: any, member: any, bot: any) {
   // intentionally NOT used - the enabledFeatures gate above already ensures
   // only the bot owning the 'welcome' feature sends. Including botId in the
   // key keeps each bot's dedup independent and bug-free.
+  // Dedup pendek: cukup untuk meredam pasangan event Telegram
+  // (new_chat_members + chat_member yang datang ~1 detik) untuk satu bot.
+  // Setelah 3 detik, member yang sama bisa disambut lagi (misal saat tes
+  // berulang atau rejoin). Tidak menahan akun manapun "ter-block" di DB.
   const dedupKey = `welcome_${bot.botId}_${chat.id}_${member.id}`
-  const DEDUP_WINDOW_MS = 10 * 1000
+  const DEDUP_WINDOW_MS = 3 * 1000
   try {
     const existing: any = await Counter.findOne({ key: dedupKey })
     if (existing && Date.now() - (existing.firstMsg || 0) < DEDUP_WINDOW_MS) return
