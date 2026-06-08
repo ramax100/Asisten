@@ -287,16 +287,21 @@ async function sendWelcome(chat: any, member: any, bot: any, bypassDedup = false
       body: JSON.stringify({ chat_id: chat.id, text, parse_mode: 'HTML' }),
     })
     const data = await res.json()
-    // If HTML parse failed (e.g. bad custom tags), retry as plain text.
-    if (!data.ok) {
-      await fetch(`https://api.telegram.org/bot${bot.token}/sendMessage`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ chat_id: chat.id, text: text.replace(/<[^>]+>/g, '') }),
-      })
-    }
-  } catch (error) {
+    if (data.ok) return { ok: true, mode: 'html' as const }
+    // HTML parse failed (e.g. bad custom tags) → retry as plain text.
+    const htmlError = data.description || `status ${res.status}`
+    const fbRes = await fetch(`https://api.telegram.org/bot${bot.token}/sendMessage`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ chat_id: chat.id, text: text.replace(/<[^>]+>/g, '') }),
+    })
+    const fbData = await fbRes.json()
+    if (fbData.ok) return { ok: true, mode: 'plain' as const, htmlError }
+    const plainError = fbData.description || `status ${fbRes.status}`
+    return { ok: false, htmlError, plainError }
+  } catch (error: any) {
     console.error('Welcome error:', error)
+    return { ok: false, exception: error?.message || 'unknown error' }
   }
 }
 
@@ -656,21 +661,49 @@ async function handleWelcomeTest(message: any, bot: any) {
 
   // Force-fire welcome with current user as the simulated new member.
   // bypassDedup=true so repeated /welcometest in the same chat keeps working.
-  await sendWelcome(chat, user, bot, true)
+  const result: any = await sendWelcome(chat, user, bot, true)
 
-  // Confirm to the admin that the trigger fired so they know to look for the
-  // welcome message just above. If they don't see one despite this confirmation,
-  // sendWelcome failed silently (HTML parse error, Telegram API rejection, etc.)
-  // and we point them at how to find out.
+  // Now report exactly what happened. If sendWelcome was rejected by Telegram
+  // (HTML parse error, bad token, blocked, etc.), the description tells us
+  // exactly what to fix - no more guessing.
+  let reportText: string
+  if (!result) {
+    reportText =
+      '⚠️ Test welcome di-skip oleh gate internal (cek /welcomedebug). ' +
+      'Kemungkinan: feature off, chat type bukan group/supergroup, atau pesan __disabled__.'
+  } else if (result.ok && result.mode === 'html') {
+    reportText =
+      '✅ Welcome berhasil dikirim sebagai HTML (lihat pesan welcome di atas).\n\n' +
+      'Kalau saat user beneran join welcome <b>tetap</b> tidak muncul, masalahnya ada di event delivery dari Telegram - bukan di sendWelcome. ' +
+      'Coba klik <b>Force Fix Webhook</b> di tab Diagnostik supaya allowed_updates di-set ulang.'
+  } else if (result.ok && result.mode === 'plain') {
+    reportText =
+      '⚠️ Welcome dikirim sebagai <b>plain text</b> (HTML rejected oleh Telegram).\n\n' +
+      `<b>Penyebab HTML invalid:</b>\n<code>${escapeHtml(result.htmlError || '?')}</code>\n\n` +
+      'Kemungkinan pesan custom kamu mengandung tag tidak didukung Telegram (cuma <code>&lt;b&gt; &lt;i&gt; &lt;u&gt; &lt;s&gt; &lt;a&gt; &lt;code&gt; &lt;pre&gt;</code> yang aman) atau karakter <code>&lt;</code> <code>&gt;</code> mentah. ' +
+      '<b>Solusi:</b> dashboard → Edit Pesan welcome → reset ke default atau hilangkan tag/simbol bermasalah.'
+  } else {
+    // result.ok = false — both HTML and plain text failed
+    const detail = result.exception
+      ? `Exception: ${escapeHtml(result.exception)}`
+      : `HTML: ${escapeHtml(result.htmlError || '?')}\nPlain: ${escapeHtml(result.plainError || '?')}`
+    reportText =
+      '❌ Pengiriman welcome <b>gagal total</b> (HTML dan plain text dua-duanya ditolak).\n\n' +
+      `<b>Error dari Telegram:</b>\n<code>${detail}</code>\n\n` +
+      '<b>Penyebab umum:</b>\n' +
+      '• <code>Forbidden: bot was kicked from the supergroup chat</code> → bot dikeluarkan dari grup, tambahkan ulang\n' +
+      '• <code>Bad Request: chat not found</code> → chat ID tidak valid\n' +
+      '• <code>Unauthorized</code> → token bot salah/dicabut, ganti token via dashboard\n' +
+      '• <code>Too Many Requests</code> → rate limit, tunggu lalu coba lagi\n' +
+      '• <code>can\'t parse entities</code> → tag HTML rusak (tapi fallback plain text harusnya jalan…)'
+  }
+
   await fetch(`https://api.telegram.org/bot${bot.token}/sendMessage`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
       chat_id: chat.id,
-      text:
-        '✅ Test welcome dipicu (bypass dedup, kamu sebagai member simulasi).\n\n' +
-        '• Pesan welcome muncul di atas? → fitur jalan. Welcome saat join asli juga akan muncul, tapi mungkin event join-nya tidak diterima webhook.\n' +
-        '• Pesan welcome <b>tidak</b> muncul? → ada bug di pengiriman (HTML invalid, token salah, Telegram block, dll). Cek <code>/welcomedebug</code> bagian <i>Webhook last_error</i>.',
+      text: reportText,
       parse_mode: 'HTML',
       reply_to_message_id: message.message_id,
     }),
