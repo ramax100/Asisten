@@ -463,13 +463,28 @@ function AntiSpamSection({ botId, bot, confirmDelete, setConfirmDelete, handleDe
 function AntiForwardSection({ botId, bot, confirmDelete, setConfirmDelete, handleDeleteFeature, fetchBot }: any) {
   const [warningLimit, setWarningLimit] = useState(bot.antiForwardWarningLimit || 3)
   const [muteDuration, setMuteDuration] = useState(bot.antiForwardMuteDuration || '1h')
+  const [warningMsg, setWarningMsg] = useState(bot.antiForwardWarningMessage || '')
+  const [muteMsg, setMuteMsg] = useState(bot.antiForwardMuteMessage || '')
+  const [showEditMsg, setShowEditMsg] = useState(false)
   const [saving, setSaving] = useState(false)
 
+  // Save settings + both custom messages in three sequential PATCH calls.
+  // Backend endpoints already exist (anti_forward_warning_message,
+  // anti_forward_mute_message) so no schema or API change is needed - this
+  // adds only the missing dashboard UI.
   const handleSave = async () => {
     setSaving(true)
     await fetch(`/api/bots/${botId}/features`, {
       method: 'PATCH', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ feature: 'anti_forward_settings', message: JSON.stringify({ warningLimit, muteDuration }) }),
+    })
+    await fetch(`/api/bots/${botId}/features`, {
+      method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ feature: 'anti_forward_warning_message', message: warningMsg }),
+    })
+    await fetch(`/api/bots/${botId}/features`, {
+      method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ feature: 'anti_forward_mute_message', message: muteMsg }),
     })
     setSaving(false)
     fetchBot()
@@ -509,6 +524,26 @@ function AntiForwardSection({ botId, bot, confirmDelete, setConfirmDelete, handl
               <option value="1d">1 hari</option>
             </select>
           </div>
+        </div>
+        <div className="mb-3">
+          <button onClick={() => setShowEditMsg(!showEditMsg)} className={`text-xs px-2.5 py-1 rounded-lg border transition-colors ${showEditMsg ? 'border-indigo-300 bg-indigo-50 text-indigo-600' : 'border-slate-200 text-slate-500 hover:text-indigo-500'}`}>
+            Custom Pesan {(warningMsg || muteMsg) ? '●' : ''}
+          </button>
+          {showEditMsg && (
+            <div className="mt-2 space-y-3">
+              <div>
+                <label className="block text-[10px] text-slate-500 mb-1 font-medium">⚠️ Pesan Peringatan (saat user kena warning):</label>
+                <textarea value={warningMsg} onChange={(e) => setWarningMsg(e.target.value)} placeholder="⚠️ {mention}, dilarang forward pesan dari luar grup! Peringatan {count}/{limit}." rows={2} className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-indigo-300 resize-none bg-slate-50" />
+                <p className="text-[10px] text-slate-400 mt-1">Variabel: {'{mention}'} {'{name}'} {'{count}'} {'{limit}'}</p>
+              </div>
+              <div>
+                <label className="block text-[10px] text-slate-500 mb-1 font-medium">🚫 Pesan Mute (saat user kena mute setelah limit tercapai):</label>
+                <textarea value={muteMsg} onChange={(e) => setMuteMsg(e.target.value)} placeholder="🚫 {mention} di-mute {duration} karena forward pesan dari luar grup ({limit}x peringatan)." rows={2} className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-indigo-300 resize-none bg-slate-50" />
+                <p className="text-[10px] text-slate-400 mt-1">Variabel: {'{mention}'} {'{name}'} {'{duration}'} {'{limit}'}</p>
+              </div>
+              <p className="text-[10px] text-slate-400 italic">Kosongkan untuk pakai pesan default bawaan.</p>
+            </div>
+          )}
         </div>
         <button onClick={handleSave} disabled={saving} className="px-3.5 py-1.5 bg-indigo-600 hover:bg-indigo-700 disabled:bg-slate-300 text-white text-xs font-medium rounded-lg">
           {saving ? 'Menyimpan...' : 'Simpan'}
