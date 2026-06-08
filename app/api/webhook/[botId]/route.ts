@@ -445,7 +445,10 @@ async function handleMessage(message: any, bot: any) {
     // Atomic increment - reliable under concurrent serverless invocations
     const newCount = await incrementWindowedCounter(key, intervalMs)
 
-    if (newCount > limit) {
+    // Use >= so a limit of N mutes exactly on the Nth message (matches the UI
+    // "Batas pesan = N"). Previously used > which required N+1 messages, so with
+    // a tight window (e.g. 3 msgs / 1s) the trigger was never reached.
+    if (newCount >= limit) {
       const muteDuration = bot.antiSpamMuteDuration || '5m'
       const seconds = parseDurationSimple(muteDuration)
 
@@ -456,7 +459,7 @@ async function handleMessage(message: any, bot: any) {
       const result = await muteUser(bot.token, chat.id, user.id, seconds)
 
       if (result.ok) {
-        const customMsg = bot.antiSpamMessage || `🚫 ${userMention} di-mute ${muteDuration} karena spam (>${limit} pesan dalam ${bot.antiSpamInterval || 10} detik).`
+        const customMsg = bot.antiSpamMessage || `🚫 ${userMention} di-mute ${muteDuration} karena spam (${limit} pesan dalam ${bot.antiSpamInterval || 10} detik).`
         const finalMsg = customMsg.replace(/{mention}/g, userMention).replace(/{name}/g, userName).replace(/{duration}/g, muteDuration).replace(/{limit}/g, String(limit))
         await sendAutoDeleteMsg(bot.token, chat.id, finalMsg, 10000)
       } else {

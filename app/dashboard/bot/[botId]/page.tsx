@@ -309,7 +309,7 @@ function AntiSpamSection({ botId, bot, confirmDelete, setConfirmDelete, handleDe
         <button onClick={handleSave} disabled={saving} className="px-3.5 py-1.5 bg-indigo-600 hover:bg-indigo-700 disabled:bg-slate-300 text-white text-xs font-medium rounded-lg">
           {saving ? 'Menyimpan...' : 'Simpan'}
         </button>
-        <p className="text-[10px] text-slate-400 mt-2">Saat ini: mute jika kirim &gt;{bot.antiSpamLimit || 5} pesan dalam {bot.antiSpamInterval || 10} detik</p>
+        <p className="text-[10px] text-slate-400 mt-2">Saat ini: mute jika kirim &ge;{bot.antiSpamLimit || 5} pesan dalam {bot.antiSpamInterval || 10} detik</p>
       </div>
     </section>
   )
