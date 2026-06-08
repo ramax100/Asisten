@@ -30,3 +30,4 @@ module.exports = nextConfig
 // redeploy: tambah /welcomedebug
 // redeploy: /welcomedebug lapor respons telegram
 // redeploy: welcomedebug v3 marker
+// redeploy: GET webhook version endpoint
