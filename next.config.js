@@ -28,3 +28,4 @@ module.exports = nextConfig
 // redeploy: fix force join toggle + diagnostik privacy mode
 // redeploy: fix welcome message HTML escaping
 // redeploy: tambah /welcomedebug
+// redeploy: /welcomedebug lapor respons telegram
