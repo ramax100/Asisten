@@ -243,31 +243,30 @@ async function resetCounter(key: string) {
 
 // Atomically increment a windowed counter.
 // In serverless, concurrent webhook invocations can race on read-modify-write,
-// causing counts to be lost (spam slips through). Using $inc makes the
-// increment atomic so rapid bursts of messages are counted reliably.
+// causing counts to be lost (spam slips through). Anti-spam is the ONLY feature
+// that must accumulate state across rapid messages, which is exactly when the
+// race bites - hence other mute features work but anti-spam didn't.
+// Using an atomic $inc upsert guarantees every message is counted.
 async function incrementWindowedCounter(key: string, intervalMs: number): Promise<number> {
   const now = Date.now()
   try {
-    const existing = await Counter.findOne({ key }).lean<{ firstMsg: number; count: number }>()
+    // Atomic increment; initialise firstMsg only when the document is created.
+    const doc = await Counter.findOneAndUpdate(
+      { key },
+      { $inc: { count: 1 }, $setOnInsert: { firstMsg: now } },
+      { upsert: true, new: true }
+    )
 
-    // Still inside the active window -> atomic increment scoped to this window
-    if (existing && existing.firstMsg && (now - existing.firstMsg) <= intervalMs) {
-      const updated = await Counter.findOneAndUpdate(
-        { key, firstMsg: existing.firstMsg },
-        { $inc: { count: 1 } },
-        { new: true }
+    // Window expired -> start a fresh window atomically.
+    if (!doc.firstMsg || now - doc.firstMsg > intervalMs) {
+      await Counter.findOneAndUpdate(
+        { key },
+        { $set: { count: 1, firstMsg: now } }
       )
-      if (updated) return updated.count
-      // firstMsg changed concurrently (a new window started) -> fall through
+      return 1
     }
 
-    // Start a fresh window
-    await Counter.findOneAndUpdate(
-      { key },
-      { $set: { count: 1, firstMsg: now } },
-      { upsert: true }
-    )
-    return 1
+    return doc.count
   } catch {
     return 1
   }
