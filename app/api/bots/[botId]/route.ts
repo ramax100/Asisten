@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import connectDB from '@/lib/mongodb'
 import Bot from '@/lib/models/Bot'
+import Counter from '@/lib/models/Counter'
+import GreetingDedup from '@/lib/models/GreetingDedup'
 
 export const dynamic = 'force-dynamic'
 
@@ -149,6 +151,47 @@ export async function PATCH(
     })
   } catch (error: any) {
     console.error('Update token error:', error?.message)
+    return NextResponse.json({ error: 'Terjadi kesalahan server' }, { status: 500 })
+  }
+}
+
+// DELETE - Remove a bot entirely (delete webhook on Telegram, then delete data)
+export async function DELETE(
+  request: NextRequest,
+  { params }: { params: { botId: string } }
+) {
+  const authToken = request.cookies.get('auth-token')?.value
+  if (authToken !== 'admin-authenticated') {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  }
+
+  try {
+    await connectDB()
+    const bot = await Bot.findOne({ botId: params.botId })
+
+    if (!bot) {
+      return NextResponse.json({ error: 'Bot tidak ditemukan' }, { status: 404 })
+    }
+
+    // Best-effort: remove the webhook on Telegram so the bot stops receiving updates
+    if (bot.token) {
+      try {
+        await fetch(`https://api.telegram.org/bot${bot.token}/deleteWebhook`)
+      } catch { /* ignore network errors */ }
+    }
+
+    // Delete the bot document
+    await Bot.deleteOne({ botId: params.botId })
+
+    // Best-effort cleanup of related transient data (counters & greeting dedup)
+    try {
+      await Counter.deleteMany({ key: new RegExp(`(^|_)${params.botId}(_|$)`) })
+      await GreetingDedup.deleteMany({ key: new RegExp(`(^|_)${params.botId}(_|$)`) })
+    } catch { /* these auto-expire anyway */ }
+
+    return NextResponse.json({ success: true, message: 'Bot berhasil dihapus' })
+  } catch (error: any) {
+    console.error('Delete bot error:', error?.message)
     return NextResponse.json({ error: 'Terjadi kesalahan server' }, { status: 500 })
   }
 }
