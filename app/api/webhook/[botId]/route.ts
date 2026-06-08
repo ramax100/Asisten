@@ -244,37 +244,33 @@ async function resetCounter(key: string) {
   try { await Counter.deleteOne({ key }) } catch {}
 }
 
-// Atomically increment a windowed counter.
-// In serverless, concurrent webhook invocations can race on read-modify-write,
-// causing counts to be lost (spam slips through). Anti-spam is the ONLY feature
-// that must accumulate state across rapid messages, which is exactly when the
-// race bites - hence other mute features work but anti-spam didn't.
-// Using an atomic $inc upsert guarantees every message is counted.
+// Sliding-window message counter for anti-spam.
 //
-// `nowMs` MUST be the message SEND time (Telegram message.date), not the server
-// processing time. Serverless processing delays (cold start, DB latency) can
-// exceed a short window like 1s, which would otherwise reset the window on every
-// message and prevent the limit from ever being reached.
-async function incrementWindowedCounter(key: string, intervalMs: number, nowMs: number): Promise<number> {
-  const now = nowMs
+// The previous fixed-window approach measured the window from the FIRST message
+// and reset the whole count to 1 as soon as one message fell outside the window
+// - discarding recent messages that were still relevant. With human-paced
+// messages this made the count oscillate (1->2->1->2) and never reach the limit.
+//
+// This records the send-time of each message and counts how many fall within the
+// last `intervalMs`. $push is additive so concurrent serverless invocations can't
+// lose increments. `nowMs` is the Telegram send time (message.date), immune to
+// serverless processing delays.
+async function slidingWindowHit(key: string, intervalMs: number, nowMs: number): Promise<number> {
+  const cutoff = nowMs - intervalMs
   try {
-    // Atomic increment; initialise firstMsg only when the document is created.
-    const doc = await Counter.findOneAndUpdate(
-      { key },
-      { $inc: { count: 1 }, $setOnInsert: { firstMsg: now } },
-      { upsert: true, new: true }
-    )
+    // Append this message's timestamp (additive, concurrency-safe).
+    await Counter.updateOne({ key }, { $push: { hits: nowMs } }, { upsert: true })
+    // Remove timestamps older than the window (atomic, doesn't clobber pushes).
+    await Counter.updateOne({ key }, { $pull: { hits: { $lt: cutoff } } })
 
-    // Window expired -> start a fresh window atomically.
-    if (!doc.firstMsg || now - doc.firstMsg > intervalMs) {
-      await Counter.findOneAndUpdate(
-        { key },
-        { $set: { count: 1, firstMsg: now } }
-      )
-      return 1
-    }
+    const doc = await Counter.findOne({ key }).lean<{ hits: number[] }>()
+    const hits = doc?.hits || []
+    const count = hits.length || 1
 
-    return doc.count
+    // Keep count/firstMsg in sync for /spamdebug visibility.
+    await Counter.updateOne({ key }, { $set: { count, firstMsg: hits[0] || nowMs } })
+
+    return count
   } catch {
     return 1
   }
@@ -496,7 +492,7 @@ async function handleMessage(message: any, bot: any) {
     // Window is measured by message SEND time (Telegram message.date, in seconds),
     // not server processing time, so serverless delays don't reset the window.
     const sentAtMs = message.date ? message.date * 1000 : Date.now()
-    const newCount = await incrementWindowedCounter(key, intervalMs, sentAtMs)
+    const newCount = await slidingWindowHit(key, intervalMs, sentAtMs)
 
     // Use >= so a limit of N mutes exactly on the Nth message (matches the UI
     // "Batas pesan = N"). Previously used > which required N+1 messages, so with

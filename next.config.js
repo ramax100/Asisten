@@ -14,3 +14,4 @@ module.exports = nextConfig
 
 // force redeploy 1780876126
 // redeploy: add /spamdebug command + anti-spam send-time window
+// redeploy: anti-spam sliding window (fix oscillating counter)
