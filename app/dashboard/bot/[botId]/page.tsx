@@ -387,6 +387,42 @@ export default function BotSettingsPage() {
   // Active tab
   const [activeTab, setActiveTab] = useState('info')
 
+  // Change token
+  const [newTokenInput, setNewTokenInput] = useState('')
+  const [savingToken, setSavingToken] = useState(false)
+  const [tokenStatus, setTokenStatus] = useState('')
+  const [tokenError, setTokenError] = useState('')
+
+  const handleChangeToken = async () => {
+    if (!newTokenInput.trim()) {
+      setTokenError('Masukkan token baru')
+      return
+    }
+    setSavingToken(true)
+    setTokenError('')
+    setTokenStatus('')
+    try {
+      const res = await fetch(`/api/bots/${botId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token: newTokenInput.trim() }),
+      })
+      const data = await res.json()
+      if (res.ok) {
+        setTokenStatus('Token berhasil diperbarui!')
+        setNewTokenInput('')
+        fetchBot()
+        setTimeout(() => setTokenStatus(''), 4000)
+      } else {
+        setTokenError(data.error || 'Gagal memperbarui token')
+      }
+    } catch {
+      setTokenError('Gagal menghubungi server')
+    } finally {
+      setSavingToken(false)
+    }
+  }
+
   useEffect(() => { fetchBot() }, [botId])
 
   useEffect(() => {
@@ -723,6 +759,47 @@ export default function BotSettingsPage() {
               <span className="text-xs text-slate-500">🔑 Token</span>
               <span className="text-xs font-mono text-slate-500">{bot.botToken}</span>
             </div>
+          </div>
+        </section>
+        )}
+
+        {/* ===== GANTI TOKEN BOT ===== */}
+        {activeTab === 'info' && (
+        <section className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+          <div className="px-4 py-3 border-b border-slate-100 flex items-center gap-2">
+            <span className="text-base">🔑</span>
+            <h2 className="text-sm font-semibold text-slate-800">Ganti Token Bot</h2>
+          </div>
+          <div className="px-4 py-4">
+            <p className="text-xs text-slate-500 mb-3">
+              Ganti token jika token bot di BotFather berubah. Token akan divalidasi dan webhook di-set ulang otomatis. Kosongkan jika tidak ingin mengganti.
+            </p>
+            <label className="block text-[10px] font-semibold text-slate-400 uppercase tracking-wide mb-1.5">Token Baru (dari BotFather)</label>
+            <input
+              type="text"
+              value={newTokenInput}
+              onChange={(e) => setNewTokenInput(e.target.value)}
+              placeholder="123456789:ABCdef..."
+              className="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl text-sm bg-slate-50 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent focus:bg-white mb-3 font-mono"
+            />
+            {tokenError && (
+              <div className="mb-3 p-2.5 bg-red-50 border border-red-100 rounded-lg">
+                <p className="text-red-600 text-xs">{tokenError}</p>
+              </div>
+            )}
+            {tokenStatus && (
+              <div className="mb-3 p-2.5 bg-emerald-50 border border-emerald-100 rounded-lg">
+                <p className="text-emerald-600 text-xs">✅ {tokenStatus}</p>
+              </div>
+            )}
+            <button
+              onClick={handleChangeToken}
+              disabled={savingToken || !newTokenInput.trim()}
+              className="w-full py-2.5 bg-indigo-600 hover:bg-indigo-700 disabled:bg-slate-300 disabled:cursor-not-allowed text-white text-sm font-medium rounded-xl transition-colors flex items-center justify-center gap-2"
+            >
+              <span>💾</span>
+              {savingToken ? 'Memvalidasi & Menyimpan...' : 'Simpan Token Baru'}
+            </button>
           </div>
         </section>
         )}

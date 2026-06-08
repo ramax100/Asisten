@@ -62,3 +62,83 @@ export async function GET(
     return NextResponse.json({ error: 'Terjadi kesalahan server' }, { status: 500 })
   }
 }
+
+
+// PATCH - Update bot token (in case token changes from BotFather)
+export async function PATCH(
+  request: NextRequest,
+  { params }: { params: { botId: string } }
+) {
+  const authToken = request.cookies.get('auth-token')?.value
+  if (authToken !== 'admin-authenticated') {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  }
+
+  try {
+    const body = await request.json()
+    const newToken = body.token?.trim()
+
+    if (!newToken) {
+      return NextResponse.json({ error: 'Token baru diperlukan' }, { status: 400 })
+    }
+
+    // Verify new token with Telegram API
+    const telegramRes = await fetch(`https://api.telegram.org/bot${newToken}/getMe`)
+    const telegramData = await telegramRes.json()
+
+    if (!telegramData.ok) {
+      return NextResponse.json({
+        error: `Token tidak valid: ${telegramData.description || 'Unknown error'}`
+      }, { status: 400 })
+    }
+
+    const newBotInfo = telegramData.result
+
+    await connectDB()
+    const bot = await Bot.findOne({ botId: params.botId })
+
+    if (!bot) {
+      return NextResponse.json({ error: 'Bot tidak ditemukan' }, { status: 404 })
+    }
+
+    // Verify the new token belongs to the same bot (bot ID must match)
+    if (String(newBotInfo.id) !== bot.botId) {
+      return NextResponse.json({
+        error: `Token ini milik bot lain (@${newBotInfo.username}). Token harus milik bot yang sama.`
+      }, { status: 400 })
+    }
+
+    // Update token + bot info
+    bot.token = newToken
+    bot.botUsername = newBotInfo.username
+    bot.botName = newBotInfo.first_name
+    await bot.save()
+
+    // Re-set webhook with new token if webhook was active
+    if (bot.webhookUrl) {
+      try {
+        await fetch(`https://api.telegram.org/bot${newToken}/setWebhook`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            url: bot.webhookUrl,
+            allowed_updates: ['message', 'callback_query', 'my_chat_member'],
+          }),
+        })
+      } catch {}
+    }
+
+    return NextResponse.json({
+      success: true,
+      message: 'Token berhasil diperbarui',
+      bot: {
+        botId: bot.botId,
+        botName: bot.botName,
+        botUsername: bot.botUsername,
+      },
+    })
+  } catch (error: any) {
+    console.error('Update token error:', error?.message)
+    return NextResponse.json({ error: 'Terjadi kesalahan server' }, { status: 500 })
+  }
+}
