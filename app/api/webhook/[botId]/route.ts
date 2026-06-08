@@ -180,6 +180,15 @@ async function answerCallbackQuery(token: string, callbackQueryId: string, text:
   }
 }
 
+// Escape HTML special chars so dynamic values (names, titles) don't break
+// Telegram's HTML parse mode (which would cause the message to fail silently).
+function escapeHtml(s: string): string {
+  return String(s)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+}
+
 // Handle new members joining the group
 async function handleNewMembers(message: any, bot: any) {
   const chat = message.chat
@@ -204,30 +213,42 @@ async function handleNewMembers(message: any, bot: any) {
     // Skip bots
     if (member.is_bot) continue
 
-    const userName = member.first_name || 'User'
-    const userMention = member.username ? `@${member.username}` : userName
+    // HTML-escape dynamic values. Without this, a member name or group title
+    // containing <, > or & makes Telegram reject the HTML message and the
+    // welcome silently fails (this was the bug).
+    const rawName = member.first_name || 'User'
+    const userName = escapeHtml(rawName)
+    const groupTitle = escapeHtml(chat.title || 'grup')
+    const usernameStr = member.username ? `@${escapeHtml(member.username)}` : userName
     const mention = `<a href="tg://user?id=${member.id}">${userName}</a>`
 
-    let text = bot.welcomeMessage || `👋 Selamat datang <b>${userName}</b> di grup <b>${chat.title}</b>!\n\nSilakan baca rules dan perkenalkan dirimu.`
+    let text = bot.welcomeMessage || `👋 Selamat datang <b>${userName}</b> di grup <b>${groupTitle}</b>!\n\nSilakan baca rules dan perkenalkan dirimu.`
 
     // Replace variables
     text = text.replace(/{mention}/g, mention)
     text = text.replace(/{name}/g, userName)
-    text = text.replace(/{username}/g, member.username ? `@${member.username}` : userName)
+    text = text.replace(/{username}/g, usernameStr)
     text = text.replace(/{id}/g, String(member.id))
-    text = text.replace(/{user}/g, `<b>${userMention}</b>`)
-    text = text.replace(/{group}/g, chat.title || 'grup')
+    text = text.replace(/{user}/g, `<b>${usernameStr}</b>`)
+    text = text.replace(/{group}/g, groupTitle)
 
     try {
-      await fetch(`https://api.telegram.org/bot${bot.token}/sendMessage`, {
+      const res = await fetch(`https://api.telegram.org/bot${bot.token}/sendMessage`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          chat_id: chat.id,
-          text,
-          parse_mode: 'HTML',
-        }),
+        body: JSON.stringify({ chat_id: chat.id, text, parse_mode: 'HTML' }),
       })
+      const data = await res.json()
+      if (!data.ok) {
+        console.error('Welcome message failed:', data.description)
+        // Fallback: resend without HTML parsing so a bad custom template
+        // (malformed tags) still delivers a plain-text welcome.
+        await fetch(`https://api.telegram.org/bot${bot.token}/sendMessage`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ chat_id: chat.id, text: text.replace(/<[^>]+>/g, '') }),
+        })
+      }
     } catch (error) {
       console.error('Welcome message error:', error)
     }
