@@ -1067,11 +1067,23 @@ export default function BotSettingsPage() {
                   <button onClick={handleDeleteWebhook} className="px-3 py-1.5 text-xs text-red-500 border border-red-200 rounded-lg hover:bg-red-50 transition-colors">Nonaktifkan</button>
                 )}
                 {webhookStatus === 'success' && <span className="text-emerald-600 text-xs">Berhasil!</span>}
-                {webhookStatus === 'error' && <span className="text-red-500 text-xs">Gagal. Pastikan NEXT_PUBLIC_BASE_URL diisi.</span>}
+                {webhookStatus === 'error' && <span className="text-red-500 text-xs">Gagal. Coba lagi atau pakai Diagnostik & Auto-Fix di bawah.</span>}
               </div>
               {bot.webhookUrl && <p className="text-[10px] text-slate-400 mt-2 font-mono break-all">{bot.webhookUrl}</p>}
             </div>
           </section>
+        )}
+
+        {/* DIAGNOSTIK - always rendered on the info tab as a core utility, not
+            tied to enabledFeatures. This is where 'Jalankan Diagnostik &
+            Auto-Fix' lives so users can repair a broken webhook in one click. */}
+        {activeTab === 'info' && (
+          <DiagnosticSection
+            botId={botId}
+            confirmDelete={confirmDelete}
+            setConfirmDelete={setConfirmDelete}
+            handleDeleteFeature={handleDeleteFeature}
+          />
         )}
 
         {/* FORCE JOIN */}
