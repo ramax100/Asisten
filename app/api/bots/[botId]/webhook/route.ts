@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import connectDB from '@/lib/mongodb'
 import Bot from '@/lib/models/Bot'
+import { getBaseUrl } from '@/lib/baseUrl'
 
 export const dynamic = 'force-dynamic'
 
@@ -25,7 +26,7 @@ export async function POST(
       return NextResponse.json({ error: 'Bot tidak ditemukan' }, { status: 404 })
     }
 
-    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'https://asisten-seven.vercel.app'
+    const baseUrl = getBaseUrl(request)
 
     const webhookUrl = `${baseUrl}/api/webhook/${bot.botId}`
 

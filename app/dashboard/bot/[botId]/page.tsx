@@ -147,11 +147,15 @@ function DiagnosticSection({ botId, confirmDelete, setConfirmDelete, handleDelet
   const [fixing, setFixing] = useState(false)
   const [results, setResults] = useState<any>(null)
 
-  const runDiagnostic = async () => {
+  const runDiagnostic = async (autoFix = true) => {
     setRunning(true)
     setResults(null)
     try {
-      const res = await fetch(`/api/bots/${botId}/diagnostic`)
+      // Auto-fix the webhook in the same call so a bad/missing webhook is
+      // repaired before the rest of the checks proceed. Pass autofix=0 to
+      // run a read-only diagnostic.
+      const url = `/api/bots/${botId}/diagnostic${autoFix ? '?autofix=1' : ''}`
+      const res = await fetch(url)
       if (res.ok) {
         const data = await res.json()
         setResults(data)
@@ -167,7 +171,7 @@ function DiagnosticSection({ botId, confirmDelete, setConfirmDelete, handleDelet
       const data = await res.json()
       if (res.ok) {
         alert('Webhook berhasil diperbarui!')
-        runDiagnostic()
+        runDiagnostic(false)
       } else {
         alert(data.error || 'Gagal fix webhook')
       }
@@ -198,24 +202,30 @@ function DiagnosticSection({ botId, confirmDelete, setConfirmDelete, handleDelet
         )}
       </div>
       <div className="px-4 py-4">
-        <p className="text-xs text-slate-500 mb-3">Cek status bot, webhook, akses channel & grup. Auto-fix jika ada masalah.</p>
+        <p className="text-xs text-slate-500 mb-3">Cek status bot, webhook, akses channel & grup. <b>Jalankan Diagnostik akan otomatis memperbaiki webhook kalau salah/tidak ada</b> — tidak perlu klik Auto-Fix terpisah.</p>
 
         <div className="flex gap-2 mb-4">
-          <button onClick={runDiagnostic} disabled={running} className="px-3.5 py-1.5 bg-indigo-600 hover:bg-indigo-700 disabled:bg-slate-300 text-white text-xs font-medium rounded-lg transition-colors">
-            {running ? 'Memeriksa...' : 'Jalankan Diagnostik'}
+          <button onClick={() => runDiagnostic(true)} disabled={running} className="px-3.5 py-1.5 bg-indigo-600 hover:bg-indigo-700 disabled:bg-slate-300 text-white text-xs font-medium rounded-lg transition-colors">
+            {running ? 'Memeriksa...' : 'Jalankan Diagnostik & Auto-Fix'}
+          </button>
+          <button onClick={() => runDiagnostic(false)} disabled={running} className="px-3.5 py-1.5 bg-white hover:bg-slate-50 disabled:bg-slate-100 text-slate-600 border border-slate-200 text-xs font-medium rounded-lg transition-colors" title="Cek tanpa mengubah apa pun">
+            Cek Saja
           </button>
           <button onClick={autoFixWebhook} disabled={fixing} className="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 disabled:bg-slate-300 text-white text-xs font-medium rounded-lg transition-colors">
-            {fixing ? 'Memperbaiki...' : 'Auto-Fix Webhook'}
+            {fixing ? 'Memperbaiki...' : 'Force Fix Webhook'}
           </button>
         </div>
 
         {results && (
           <div className="space-y-2">
             {results.checks.map((check: any, i: number) => (
-              <div key={i} className="flex items-start gap-2 bg-slate-50 rounded-lg px-3 py-2.5 border border-slate-100">
-                <span className="text-sm mt-0.5">{statusIcon(check.status)}</span>
+              <div key={i} className={`flex items-start gap-2 rounded-lg px-3 py-2.5 border ${check.autoFixed ? 'bg-emerald-50 border-emerald-200' : 'bg-slate-50 border-slate-100'}`}>
+                <span className="text-sm mt-0.5">{check.autoFixed ? '🔧' : statusIcon(check.status)}</span>
                 <div className="flex-1 min-w-0">
-                  <p className="text-xs font-medium text-slate-700">{check.name}</p>
+                  <p className="text-xs font-medium text-slate-700">
+                    {check.name}
+                    {check.autoFixed && <span className="ml-1.5 text-[9px] bg-emerald-100 text-emerald-600 px-1 py-0.5 rounded font-medium">Auto-fixed</span>}
+                  </p>
                   <p className="text-[10px] text-slate-500 break-all">{check.detail}</p>
                 </div>
               </div>

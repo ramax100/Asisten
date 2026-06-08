@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import connectDB from '@/lib/mongodb'
 import Bot from '@/lib/models/Bot'
+import { getBaseUrl } from '@/lib/baseUrl'
 
 export const dynamic = 'force-dynamic'
 
@@ -18,7 +19,7 @@ export async function POST(request: NextRequest) {
     await connectDB()
     const bots = await Bot.find({ isActive: true })
 
-    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'https://asisten-seven.vercel.app'
+    const baseUrl = getBaseUrl(request)
     const results = []
 
     for (const bot of bots) {
