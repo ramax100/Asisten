@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 
 export default function LoginPage() {
@@ -8,7 +8,16 @@ export default function LoginPage() {
   const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const [brandName, setBrandName] = useState('Rich Bot')
+  const [logoUrl, setLogoUrl] = useState('')
   const router = useRouter()
+
+  useEffect(() => {
+    fetch('/api/settings').then(r => r.json()).then(d => {
+      if (d.brandName) setBrandName(d.brandName)
+      if (d.logoUrl) setLogoUrl(d.logoUrl)
+    }).catch(() => {})
+  }, [])
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -32,7 +41,14 @@ export default function LoginPage() {
     <div className="min-h-screen flex items-center justify-center bg-slate-50 px-4">
       <div className="w-full max-w-sm">
         <div className="text-center mb-8">
-          <h1 className="text-2xl font-bold text-slate-800">Bot Panel</h1>
+          {logoUrl ? (
+            <img src={logoUrl} alt={brandName} className="w-16 h-16 mx-auto rounded-full object-cover mb-3 shadow-md" />
+          ) : (
+            <div className="w-16 h-16 mx-auto rounded-full bg-indigo-600 flex items-center justify-center mb-3 shadow-md">
+              <span className="text-white text-xl font-bold">{brandName.charAt(0)}</span>
+            </div>
+          )}
+          <h1 className="text-2xl font-bold text-slate-800">{brandName}</h1>
           <p className="text-slate-500 text-sm mt-1">Masuk ke panel admin</p>
         </div>
 

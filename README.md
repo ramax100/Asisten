@@ -1,155 +1,151 @@
-# Telegram Bot Panel
+# Rich Bot - Telegram Bot Management Panel
 
-Multi-bot Telegram management panel dengan fitur Force Join Channel. Deploy ke Vercel, online 24 jam.
+Panel admin untuk mengelola multi-bot Telegram dengan berbagai fitur moderasi, anti-spam, welcome message, dan lainnya. Deploy ke Vercel dengan database MongoDB Atlas.
 
 ---
 
 ## Fitur
 
-- **Multi-bot** — Kelola beberapa bot Telegram dari 1 dashboard
-- **Login via Token** — Akses panel menggunakan token BotFather
-- **Force Join Channel** — User wajib join channel sebelum bisa kirim pesan di grup
-- **Auto-detect Grup** — Grup otomatis terdeteksi saat bot ditambahkan sebagai admin
-- **Webhook Mode** — Bot online 24/7 via Vercel serverless functions
+| Fitur | Keterangan |
+|-------|------------|
+| **Multi-Bot** | Kelola banyak bot Telegram dari satu panel |
+| **Force Join** | Paksa member join channel sebelum bisa kirim pesan |
+| **Welcome Message** | Sambut member baru dengan pesan custom |
+| **Anti-Spam** | Auto-mute member yang spam (sliding window) |
+| **Anti-Forward** | Larang forward pesan dari luar grup |
+| **Banned Words** | Hapus pesan yang mengandung kata terlarang (whole-word match) |
+| **Moderasi** | /mute, /unmute, /kick, /ban, /unban via reply, tag, atau user ID |
+| **Greeting Otomatis** | Sapaan otomatis pagi/siang/sore/malam |
+| **Kirim Pesan** | Broadcast pesan + foto ke grup dari panel |
+| **Profil Website** | Ubah nama merk & upload logo dari dashboard |
+| **Popup Welcome** | Pesan popup saat pertama kali buka website |
+| **Diagnostik** | /spamdebug, /welcomedebug, /welcometest (admin only) |
 
 ---
 
-## Panduan Lengkap Deploy
+## Deploy Sendiri (Untuk Pengguna Baru)
 
-### LANGKAH 1: Buat Bot di Telegram
+### Prasyarat
 
-1. Buka Telegram, cari **@BotFather**
-2. Kirim `/newbot`
-3. Masukkan nama bot (contoh: `Asisten Grup`)
-4. Masukkan username bot (contoh: `asisten_grup_bot`)
-5. BotFather akan memberikan **token** seperti:
-   ```
-   123456789:ABCdefGHIjklMNOpqrsTUVwxyz
-   ```
-6. **Simpan token ini** — nanti dipakai untuk login ke panel
+- Akun [MongoDB Atlas](https://www.mongodb.com/atlas) (gratis)
+- Akun [Vercel](https://vercel.com/) (gratis)
+- Bot Telegram (buat via [@BotFather](https://t.me/BotFather))
 
 ---
 
-### LANGKAH 2: Buat Database MongoDB Atlas (Gratis)
+### Langkah 1: Fork Repository
 
-1. Buka https://www.mongodb.com/cloud/atlas
-2. Klik **"Try Free"** → Buat akun (bisa pakai Google)
-3. Setelah masuk, klik **"Build a Database"**
-4. Pilih **FREE / M0 Sandbox** → Pilih region terdekat (Singapore) → Klik **"Create"**
-5. Buat Database User:
-   - Username: `botpanel`
-   - Password: buat password (contoh: `MyPassword123`)
-   - Klik **"Create User"**
-6. Di bagian **"Where would you like to connect from?"**:
-   - Klik **"Add My Current IP"**
-   - **PENTING:** Juga tambahkan `0.0.0.0/0` (agar Vercel bisa akses)
-   - Klik **"Finish and Close"**
-7. Klik **"Connect"** → Pilih **"Drivers"**
-8. Copy connection string, akan seperti ini:
-   ```
-   mongodb+srv://botpanel:MyPassword123@cluster0.xxxxx.mongodb.net/?retryWrites=true&w=majority
-   ```
-9. **Tambahkan nama database** setelah `.net/`:
-   ```
-   mongodb+srv://botpanel:MyPassword123@cluster0.xxxxx.mongodb.net/telegram-panel?retryWrites=true&w=majority
-   ```
-10. **Simpan connection string ini**
+Klik tombol **Fork** di kanan atas halaman GitHub ini.
 
 ---
 
-### LANGKAH 3: Deploy ke Vercel
+### Langkah 2: Buat Database MongoDB Atlas (Gratis)
 
-1. Buka https://vercel.com → Login dengan akun GitHub
-2. Klik **"Add New..."** → **"Project"**
-3. Cari repository **"Asisten"** → Klik **"Import"**
-4. Di halaman konfigurasi, buka bagian **"Environment Variables"**
-5. Tambahkan 3 variabel berikut satu per satu:
-
-   | NAME | VALUE |
-   |------|-------|
-   | `MONGODB_URI` | `mongodb+srv://botpanel:MyPassword123@cluster0.xxxxx.mongodb.net/telegram-panel?retryWrites=true&w=majority` |
-   | `SESSION_SECRET` | `buatStringAcakMinimal32KarakterSepertiIni123456` |
-   | `NEXT_PUBLIC_BASE_URL` | _(kosongkan dulu, isi setelah deploy)_ |
-
-6. Klik **"Deploy"** → Tunggu sampai selesai (1-2 menit)
-7. Setelah deploy berhasil, Anda akan mendapat URL seperti:
-   ```
-   https://asisten-xxxxx.vercel.app
-   ```
-8. **Copy URL tersebut**, lalu:
-   - Buka **Settings** → **Environment Variables**
-   - Tambah/edit `NEXT_PUBLIC_BASE_URL` dengan URL Anda:
-     ```
-     https://asisten-xxxxx.vercel.app
-     ```
-9. Buka tab **"Deployments"** → Klik **"⋮"** → **"Redeploy"**
+1. Buka [mongodb.com/atlas](https://www.mongodb.com/atlas) → daftar/login
+2. Klik **Build a Database** → pilih **FREE (M0)**
+3. Buat database user:
+   - Klik **Database Access** → **Add New Database User**
+   - Isi username & password (catat!)
+   - Role: **Read and Write to Any Database**
+4. Whitelist semua IP (agar Vercel bisa akses):
+   - Klik **Network Access** → **Add IP Address** → **Allow Access from Anywhere** (`0.0.0.0/0`)
+5. Dapatkan connection string:
+   - Klik **Database** → **Connect** → **Drivers**
+   - Copy string-nya, ganti `<password>` dengan password tadi
+   - Contoh hasil: `mongodb+srv://user:pass123@cluster0.abc.mongodb.net/botpanel?retryWrites=true&w=majority`
 
 ---
 
-### LANGKAH 4: Setup Bot di Panel
+### Langkah 3: Deploy ke Vercel
 
-1. Buka URL Vercel Anda di browser (contoh: `https://asisten-xxxxx.vercel.app`)
-2. Masukkan **token bot** yang didapat dari BotFather → Klik **"Login"**
-3. Anda akan masuk ke **Dashboard**
+1. Buka [vercel.com](https://vercel.com) → login → **Add New Project**
+2. Import repository yang sudah di-fork
+3. Di halaman konfigurasi, tambahkan **Environment Variables**:
 
----
+| Variable | Isi dengan | Keterangan |
+|----------|-----------|------------|
+| `MONGODB_URI` | `mongodb+srv://user:pass@...` | Connection string dari langkah 2 |
+| `ADMIN_USERNAME` | `admin` | Username login panel (bebas) |
+| `ADMIN_PASSWORD` | `password_kamu` | Password login panel (bebas) |
 
-### LANGKAH 5: Aktifkan Webhook
-
-1. Di Dashboard, klik bot Anda
-2. Klik tombol **"Setup Webhook"**
-3. Jika muncul "Webhook berhasil diatur!" → Bot sudah online 24 jam!
-
----
-
-### LANGKAH 6: Setup Force Join Channel
-
-1. **Buat channel Telegram** (atau gunakan yang sudah ada)
-2. **Tambahkan bot sebagai admin** di channel tersebut:
-   - Buka Channel → Settings → Administrators → Add Admin → Cari bot Anda
-3. Di panel dashboard, bagian **"Force Join Channel"**:
-   - Ketik username channel (contoh: `@channelkamu`)
-   - Klik **"Tambah"**
+4. Klik **Deploy** → tunggu selesai
+5. Buka URL yang diberikan Vercel → Login → Selesai!
 
 ---
 
-### LANGKAH 7: Proteksi Grup
+### Langkah 4: Buat Bot Telegram
 
-1. **Tambahkan bot sebagai admin di grup** yang ingin diprotect:
-   - Buka Grup → Settings → Administrators → Add Admin → Cari bot Anda
-   - **WAJIB** aktifkan izin: ✅ Delete Messages
-2. Bot akan otomatis mendeteksi grup dan mulai bekerja!
+1. Buka [@BotFather](https://t.me/BotFather) di Telegram
+2. Kirim `/newbot` → ikuti instruksi → catat **token**
+3. Matikan privacy mode:
+   - `/mybots` → pilih bot → **Bot Settings** → **Group Privacy** → **Turn off**
+4. Buka panel admin Anda → klik **+ Tambah Bot** → paste token → selesai!
 
 ---
 
-## Cara Kerja Force Join
+## Command Bot di Grup
+
+| Command | Fungsi | Cara Pakai |
+|---------|--------|------------|
+| `/mute 1m` | Mute member | Reply/tag/ID |
+| `/unmute` | Unmute member | Reply/tag/ID |
+| `/kick` | Kick member | Reply/tag/ID |
+| `/ban` | Ban member | Reply/tag/ID |
+| `/unban` | Unban member | Reply/tag/ID |
+| `/id` | Lihat user ID member | Reply pesan member |
+| `/spamdebug` | Diagnostik anti-spam | Admin only |
+| `/welcomedebug` | Diagnostik welcome | Admin only |
+| `/welcometest` | Test welcome message | Admin only |
+
+**Format moderasi:**
+```
+/mute 1m              → reply pesan member
+/mute 123456789 1m    → pakai user ID langsung
+/mute [tag member] 1m → tag dari suggestion list
+```
+
+**Format durasi:** `30s` (detik), `5m` (menit), `1h` (jam), `1d` (hari)
+
+---
+
+## Struktur Project
 
 ```
-User kirim pesan di grup
-        │
-        ▼
-Bot cek: sudah join channel?
-        │
-   ┌────┴────┐
-   │         │
-   ▼         ▼
-  ❌ NO     ✅ YES
-   │         │
-   ▼         ▼
-Hapus      Pesan
-pesan +    dibiarkan
-kirim      (normal)
-warning
-   │
-   ▼
-User klik "Join Channel"
-   │
-   ▼
-User klik "Sudah Join"
-   │
-   ▼
-Bot verifikasi → ✅ Warning dihapus
+├── app/
+│   ├── api/
+│   │   ├── auth/          # Login, logout, session
+│   │   ├── bots/          # CRUD bot, channels, features
+│   │   ├── cron/          # Greeting otomatis
+│   │   ├── settings/      # Profil website (nama & logo)
+│   │   └── webhook/       # Handler webhook Telegram
+│   ├── dashboard/
+│   │   ├── bot/[botId]/   # Detail & pengaturan bot
+│   │   ├── send/          # Kirim pesan broadcast
+│   │   └── settings/      # Profil website
+│   ├── layout.tsx
+│   ├── page.tsx           # Halaman login
+│   └── WelcomePopup.tsx   # Popup welcome
+├── lib/
+│   ├── models/            # Mongoose models
+│   ├── mongodb.ts         # Database connection
+│   ├── baseUrl.ts         # URL resolver
+│   └── greetings.ts       # Greeting logic
+├── .env.example           # Template env variables
+├── next.config.js
+├── package.json
+└── vercel.json
 ```
+
+---
+
+## Environment Variables
+
+| Variable | Wajib | Default | Keterangan |
+|----------|:-----:|---------|------------|
+| `MONGODB_URI` | **Ya** | - | MongoDB Atlas connection string |
+| `ADMIN_USERNAME` | Tidak | `admin` | Username login panel |
+| `ADMIN_PASSWORD` | Tidak | `@Admin001002` | Password login panel |
+| `NEXT_PUBLIC_BASE_URL` | Tidak | auto-detect | Base URL (opsional) |
 
 ---
 
@@ -157,57 +153,35 @@ Bot verifikasi → ✅ Warning dihapus
 
 | Masalah | Solusi |
 |---------|--------|
-| Login gagal "Token tidak valid" | Pastikan token dari BotFather benar, copy ulang |
-| Webhook gagal | Pastikan `NEXT_PUBLIC_BASE_URL` sudah diisi dan sudah redeploy |
-| Channel tidak ditemukan | Pastikan bot sudah ditambahkan sebagai admin di channel |
-| Pesan tidak dihapus di grup | Pastikan bot menjadi admin di grup dengan izin "Delete Messages" |
-| Panel tidak bisa dibuka | Cek apakah `MONGODB_URI` benar dan IP `0.0.0.0/0` sudah di-whitelist |
-
----
-
-## Menambahkan Bot Kedua (Multi-bot)
-
-1. Buat bot baru di @BotFather → Dapatkan token baru
-2. Di dashboard, klik **"+ Tambah Bot"**
-3. Masukkan token bot baru → Klik "Tambah"
-4. Setup webhook dan channel untuk bot baru tersebut
-5. Ulangi langkah 5-7 di atas
+| Bot tidak merespon | Pastikan bot admin di grup + privacy mode OFF |
+| Welcome tidak muncul | Jalankan `/welcomedebug` atau klik Fix Webhook |
+| Anti-spam tidak jalan | Admin dikecualikan (by design). Cek `/spamdebug` |
+| Webhook error | Klik **Fix Semua Bot** di dashboard |
+| Login gagal | Cek ADMIN_USERNAME dan ADMIN_PASSWORD di env |
+| Database error | Cek MONGODB_URI dan whitelist IP di Atlas |
 
 ---
 
 ## Tech Stack
 
-- **Next.js 14** (App Router)
-- **MongoDB Atlas** (Mongoose ODM)
-- **Tailwind CSS** (Dark theme)
-- **iron-session** (Cookie-based sessions)
-- **Telegram Bot API** (Direct HTTP calls)
-- **Vercel** (Serverless deployment)
+- **Framework:** Next.js 14 (App Router)
+- **Database:** MongoDB Atlas + Mongoose
+- **Styling:** Tailwind CSS
+- **Hosting:** Vercel
+- **Bot API:** Telegram Bot API
 
 ---
 
-## Development Lokal
+## Lisensi
 
-```bash
-# Install dependencies
-npm install
-
-# Copy environment file
-cp .env.example .env
-
-# Edit .env dengan konfigurasi Anda
-# Lalu jalankan:
-npm run dev
-```
-
-Buka http://localhost:3000
+MIT License - bebas digunakan, dimodifikasi, dan didistribusikan.
 
 ---
 
-## Environment Variables
+## About
 
-| Variable | Deskripsi | Contoh |
-|----------|-----------|--------|
-| `MONGODB_URI` | Connection string MongoDB | `mongodb+srv://user:pass@cluster.mongodb.net/telegram-panel` |
-| `SESSION_SECRET` | Secret key untuk session (min 32 char) | `supersecretkeyyangsangatpanjang123` |
-| `NEXT_PUBLIC_BASE_URL` | URL deployment Vercel | `https://asisten-xxx.vercel.app` |
+Aplikasi ini dibuat oleh **Rich Store** — solusi bot Telegram terpercaya.
+
+Untuk update, tips, dan support:
+
+**Channel Telegram:** [@ChRichStore](https://t.me/ChRichStore)

@@ -1,9 +1,11 @@
 import type { Metadata } from 'next'
 import './globals.css'
+import WelcomePopup from './WelcomePopup'
+import LoadingCat from './LoadingCat'
 
 export const metadata: Metadata = {
-  title: 'Telegram Bot Panel',
-  description: 'Multi-bot Telegram management panel',
+  title: 'Rich Bot - Telegram Bot Panel',
+  description: 'Rich Bot - Multi-bot Telegram management panel',
 }
 
 export default function RootLayout({
@@ -13,7 +15,11 @@ export default function RootLayout({
 }) {
   return (
     <html lang="id">
-      <body>{children}</body>
+      <body>
+        <LoadingCat />
+        {children}
+        <WelcomePopup />
+      </body>
     </html>
   )
 }

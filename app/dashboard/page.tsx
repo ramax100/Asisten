@@ -23,9 +23,22 @@ export default function DashboardPage() {
   const [newGroup, setNewGroup] = useState('')
   const [addLoading, setAddLoading] = useState(false)
   const [error, setError] = useState('')
+  const [brandName, setBrandName] = useState('Rich Bot')
+  const [logoUrl, setLogoUrl] = useState('')
   const router = useRouter()
 
-  useEffect(() => { checkSession(); fetchBots() }, [])
+  useEffect(() => { checkSession(); fetchBots(); fetchSettings() }, [])
+
+  const fetchSettings = async () => {
+    try {
+      const res = await fetch('/api/settings')
+      if (res.ok) {
+        const data = await res.json()
+        if (data.brandName) setBrandName(data.brandName)
+        if (data.logoUrl) setLogoUrl(data.logoUrl)
+      }
+    } catch {}
+  }
 
   const checkSession = async () => {
     const res = await fetch('/api/auth/session')
@@ -87,14 +100,50 @@ export default function DashboardPage() {
     }
   }
 
-  if (loading) return <div className="min-h-screen flex items-center justify-center bg-slate-50"><p className="text-slate-400 text-sm">Memuat...</p></div>
+  if (loading) return (
+    <div className="min-h-screen flex items-center justify-center bg-slate-50">
+      <div className="loading-content">
+        <div className="cat">
+          <div className="cat-body">
+            <div className="cat-head">
+              <div className="cat-ear cat-ear-left"></div>
+              <div className="cat-ear cat-ear-right"></div>
+              <div className="cat-face">
+                <div className="cat-eye cat-eye-left"></div>
+                <div className="cat-eye cat-eye-right"></div>
+                <div className="cat-nose"></div>
+              </div>
+            </div>
+            <div className="cat-tail"></div>
+            <div className="cat-leg cat-leg-front-left"></div>
+            <div className="cat-leg cat-leg-front-right"></div>
+            <div className="cat-leg cat-leg-back-left"></div>
+            <div className="cat-leg cat-leg-back-right"></div>
+          </div>
+        </div>
+        <p className="loading-text">Memuat...</p>
+      </div>
+    </div>
+  )
 
   return (
     <div className="min-h-screen bg-slate-50">
       <header className="bg-white border-b border-slate-200 sticky top-0 z-10">
         <div className="max-w-3xl mx-auto px-4 py-3 flex items-center justify-between">
-          <h1 className="text-base font-bold text-slate-800">Bot Panel</h1>
+          <div className="flex items-center gap-2">
+            {logoUrl ? (
+              <img src={logoUrl} alt={brandName} className="w-8 h-8 rounded-full object-cover" />
+            ) : (
+              <div className="w-8 h-8 rounded-full bg-indigo-600 flex items-center justify-center">
+                <span className="text-white text-xs font-bold">{brandName.charAt(0)}</span>
+              </div>
+            )}
+            <h1 className="text-base font-bold text-slate-800">{brandName}</h1>
+          </div>
           <div className="flex items-center gap-3">
+            <button onClick={() => router.push('/dashboard/settings')} className="text-xs font-medium text-slate-500 hover:text-slate-700 flex items-center gap-1">
+              <span>⚙️</span> Profil
+            </button>
             <button onClick={() => router.push('/dashboard/send')} className="text-xs font-medium text-indigo-600 hover:text-indigo-700 flex items-center gap-1">
               <span>📨</span> Kirim Pesan
             </button>

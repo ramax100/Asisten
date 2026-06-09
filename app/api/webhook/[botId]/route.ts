@@ -80,7 +80,7 @@ export async function POST(
         // & sending working?" from "is Telegram delivering the join event?"
         // without leave-rejoin testing.
         await handleWelcomeTest(update.message, bot)
-      } else if (msgText.match(/^\/(mute|unmute|kick|ban|unban)/i)) {
+      } else if (msgText.match(/\/(mute|unmute|kick|ban|unban|id)\b/i)) {
         // Handle moderation commands - skip force join check
         await handleCommand(update.message, bot)
       } else {
@@ -473,7 +473,10 @@ async function handleSpamDebug(message: any, bot: any) {
     return
   }
 
-  const isAdmin = await checkIfAdmin(bot.token, chat.id, user.id)
+  // Only admins can use this command (anonymous admin juga diizinkan)
+  const isAnonymousAdmin = message.sender_chat && String(message.sender_chat.id) === String(chat.id)
+  const isAdmin = isAnonymousAdmin || await checkIfAdmin(bot.token, chat.id, user.id)
+  if (!isAdmin) return
   const features = bot.enabledFeatures || []
   const hasAntiSpam = bot.antiSpamEnabled === true || features.includes('anti_spam')
 
@@ -523,6 +526,11 @@ async function handleWelcomeDebug(message: any, bot: any) {
     })
     return
   }
+
+  // Only admins can use this command (anonymous admin juga diizinkan)
+  const isAnonymousAdmin = message.sender_chat && String(message.sender_chat.id) === String(chat.id)
+  const isAdmin = isAnonymousAdmin || await checkIfAdmin(bot.token, chat.id, user.id)
+  if (!isAdmin) return
 
   const features = bot.enabledFeatures || []
   const hasWelcome = features.includes('welcome')
@@ -637,6 +645,11 @@ async function handleWelcomeTest(message: any, bot: any) {
     })
     return
   }
+
+  // Only admins can use this command (anonymous admin juga diizinkan)
+  const isAnonymousAdmin = message.sender_chat && String(message.sender_chat.id) === String(chat.id)
+  const isAdmin = isAnonymousAdmin || await checkIfAdmin(bot.token, chat.id, user.id)
+  if (!isAdmin) return
 
   const features = bot.enabledFeatures || []
   if (!features.includes('welcome')) {
@@ -831,7 +844,11 @@ async function handleMessage(message: any, bot: any) {
   // === BANNED WORDS CHECK ===
   if (hasBannedWords && bot.bannedWords && bot.bannedWords.length > 0) {
     const lowerText = text.toLowerCase()
-    const foundWord = bot.bannedWords.find((word: string) => lowerText.includes(word.toLowerCase()))
+    const foundWord = bot.bannedWords.find((word: string) => {
+      const escaped = word.toLowerCase().replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+      const regex = new RegExp(`(?:^|\\b|\\s)${escaped}(?:\\b|\\s|$)`, 'i')
+      return regex.test(lowerText)
+    })
 
     if (foundWord) {
       // Delete the message

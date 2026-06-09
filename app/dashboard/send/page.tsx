@@ -25,8 +25,21 @@ export default function SendMessagePage() {
   const [photoPreview, setPhotoPreview] = useState<string>('')
   const [sending, setSending] = useState(false)
   const [result, setResult] = useState<{ ok: boolean; msg: string } | null>(null)
+  const [brandName, setBrandName] = useState('Rich Bot')
+  const [logoUrl, setLogoUrl] = useState('')
 
-  useEffect(() => { checkSession(); fetchBots() }, [])
+  useEffect(() => { checkSession(); fetchBots(); fetchSettings() }, [])
+
+  const fetchSettings = async () => {
+    try {
+      const res = await fetch('/api/settings')
+      if (res.ok) {
+        const data = await res.json()
+        if (data.brandName) setBrandName(data.brandName)
+        if (data.logoUrl) setLogoUrl(data.logoUrl)
+      }
+    } catch {}
+  }
 
   const checkSession = async () => {
     const res = await fetch('/api/auth/session')
@@ -107,10 +120,26 @@ export default function SendMessagePage() {
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-slate-50">
-        <div className="flex items-center gap-2">
-          <div className="w-2 h-2 bg-indigo-500 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
-          <div className="w-2 h-2 bg-indigo-500 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></div>
-          <div className="w-2 h-2 bg-indigo-500 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></div>
+        <div className="loading-content">
+          <div className="cat">
+            <div className="cat-body">
+              <div className="cat-head">
+                <div className="cat-ear cat-ear-left"></div>
+                <div className="cat-ear cat-ear-right"></div>
+                <div className="cat-face">
+                  <div className="cat-eye cat-eye-left"></div>
+                  <div className="cat-eye cat-eye-right"></div>
+                  <div className="cat-nose"></div>
+                </div>
+              </div>
+              <div className="cat-tail"></div>
+              <div className="cat-leg cat-leg-front-left"></div>
+              <div className="cat-leg cat-leg-front-right"></div>
+              <div className="cat-leg cat-leg-back-left"></div>
+              <div className="cat-leg cat-leg-back-right"></div>
+            </div>
+          </div>
+          <p className="loading-text">Memuat...</p>
         </div>
       </div>
     )
@@ -121,9 +150,13 @@ export default function SendMessagePage() {
       {/* ===== SIDEBAR ===== */}
       <aside className="hidden md:flex md:flex-col w-60 bg-white border-r border-slate-200 min-h-screen sticky top-0">
         <div className="px-5 py-4 border-b border-slate-100 flex items-center gap-2.5">
-          <div className="w-9 h-9 rounded-lg bg-indigo-600 flex items-center justify-center text-white text-sm font-bold">B</div>
+          {logoUrl ? (
+            <img src={logoUrl} alt={brandName} className="w-9 h-9 rounded-lg object-cover" />
+          ) : (
+            <div className="w-9 h-9 rounded-lg bg-indigo-600 flex items-center justify-center text-white text-sm font-bold">{brandName.charAt(0)}</div>
+          )}
           <div className="min-w-0">
-            <p className="text-sm font-bold text-slate-800 truncate">Bot Panel</p>
+            <p className="text-sm font-bold text-slate-800 truncate">{brandName}</p>
             <p className="text-[10px] text-slate-400 truncate">Kelola bot Telegram</p>
           </div>
         </div>
