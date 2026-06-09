@@ -831,7 +831,11 @@ async function handleMessage(message: any, bot: any) {
   // === BANNED WORDS CHECK ===
   if (hasBannedWords && bot.bannedWords && bot.bannedWords.length > 0) {
     const lowerText = text.toLowerCase()
-    const foundWord = bot.bannedWords.find((word: string) => lowerText.includes(word.toLowerCase()))
+    const foundWord = bot.bannedWords.find((word: string) => {
+      const escaped = word.toLowerCase().replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+      const regex = new RegExp(`(?:^|\\b|\\s)${escaped}(?:\\b|\\s|$)`, 'i')
+      return regex.test(lowerText)
+    })
 
     if (foundWord) {
       // Delete the message
