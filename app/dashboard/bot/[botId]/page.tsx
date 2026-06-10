@@ -748,16 +748,16 @@ function CustomCommandsSection({ botId, bot, confirmDelete, setConfirmDelete, ha
 }
 
 const ALL_FEATURES: Feature[] = [
-  { id: 'webhook', name: 'Webhook', desc: 'Aktifkan bot 24 jam', icon: '🌐', category: 'Dasar' },
-  { id: 'force_join', name: 'Force Join Channel', desc: 'Wajibkan member join channel sebelum kirim pesan', icon: '🔒', category: 'Proteksi' },
-  { id: 'protect_group', name: 'Proteksi Grup', desc: 'Tambahkan grup yang ingin dilindungi', icon: '🛡', category: 'Proteksi' },
-  { id: 'anti_forward', name: 'Anti-Forward', desc: 'Larang forward pesan dari luar grup (peringatan 3x lalu mute)', icon: '↩️', category: 'Proteksi' },
-  { id: 'anti_spam', name: 'Anti-Spam', desc: 'Mute member yang kirim pesan terlalu cepat/banyak', icon: '🚫', category: 'Proteksi' },
-  { id: 'banned_words', name: 'Kata Terlarang', desc: 'Hapus pesan yang mengandung kata tertentu + mute', icon: '🤬', category: 'Proteksi' },
-  { id: 'welcome', name: 'Welcome Message', desc: 'Sambut member baru yang masuk grup', icon: '👋', category: 'Pesan Otomatis' },
-  { id: 'greeting', name: 'Ucapan Otomatis', desc: 'Kirim ucapan selamat pagi, siang, sore, malam', icon: '🕐', category: 'Pesan Otomatis' },
-  { id: 'moderation', name: 'Moderasi (Mute/Kick/Ban)', desc: 'Admin bisa mute, kick, ban member via command', icon: '⚔️', category: 'Moderasi' },
-  { id: 'custom_commands', name: 'Custom Commands', desc: 'Buat command bot sendiri (/rules, /info, dll)', icon: '💬', category: 'Pesan Otomatis' },
+  { id: 'webhook', name: 'Aktifkan Bot', desc: 'Webhook agar bot online 24 jam dan bisa merespon pesan di grup secara realtime', icon: '🌐', category: 'Dasar' },
+  { id: 'force_join', name: 'Wajib Join Channel', desc: 'Member harus join channel dulu sebelum bisa kirim pesan di grup. Pesan dihapus otomatis jika belum join', icon: '🔒', category: 'Proteksi' },
+  { id: 'protect_group', name: 'Daftar Grup', desc: 'Tambah grup manual via ID. Catatan: semua fitur berlaku global di semua grup yang bot ikuti (multi-grup otomatis)', icon: '🛡', category: 'Proteksi' },
+  { id: 'anti_forward', name: 'Blokir Forward', desc: 'Hapus pesan yang di-forward dari luar grup. Member diberi peringatan, setelah batas tercapai di-mute otomatis', icon: '↩️', category: 'Proteksi' },
+  { id: 'anti_spam', name: 'Anti Spam', desc: 'Otomatis mute member yang spam. Bisa atur batas pesan & durasi mute. Admin dikecualikan', icon: '🚫', category: 'Proteksi' },
+  { id: 'banned_words', name: 'Filter Kata', desc: 'Hapus pesan mengandung kata terlarang (whole-word). Aksi: hapus saja, hapus + peringatan, atau hapus + mute', icon: '🤬', category: 'Proteksi' },
+  { id: 'welcome', name: 'Sambutan Member Baru', desc: 'Pesan otomatis saat member join grup. Variabel: {mention}, {name}, {group}, {channel}', icon: '👋', category: 'Pesan Otomatis' },
+  { id: 'greeting', name: 'Sapaan Harian', desc: 'Ucapan otomatis sesuai waktu WIB (pagi/siang/sore/malam). Bisa custom teks & tambah variasi acak', icon: '🕐', category: 'Pesan Otomatis' },
+  { id: 'custom_commands', name: 'Command Custom', desc: 'Buat command sendiri (/rules, /info, dll). Bot reply teks yang diatur. Otomatis muncul di BotFather saat ketik /', icon: '💬', category: 'Pesan Otomatis' },
+  { id: 'moderation', name: 'Moderasi Grup', desc: 'Command: /mute, /unmute, /kick, /ban, /unban, /id. Bisa via reply, tag member, atau user ID. Admin only', icon: '⚔️', category: 'Moderasi' },
 ]
 
 const FEATURE_CATEGORIES = ['Dasar', 'Proteksi', 'Pesan Otomatis', 'Moderasi']
