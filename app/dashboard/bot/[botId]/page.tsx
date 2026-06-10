@@ -686,7 +686,11 @@ function CustomCommandsSection({ botId, bot, confirmDelete, setConfirmDelete, ha
         )}
       </div>
       <div className="px-4 py-4">
-        <p className="text-xs text-slate-500 mb-3">Buat command bot sendiri. Member ketik command di grup → bot reply dengan teks yang sudah diatur.</p>
+        <p className="text-xs text-slate-500 mb-2">Buat command bot sendiri. Member ketik command di grup → bot reply dengan teks yang sudah diatur.</p>
+        <div className="text-[10px] text-indigo-600 bg-indigo-50 border border-indigo-100 px-3 py-2 rounded-lg mb-3 flex items-start gap-1.5">
+          <span>💡</span>
+          <span>Command yang ditambahkan otomatis tersinkron ke <b>BotFather</b>. Cek langsung di BotFather atau ketik <b>/</b> di grup untuk lihat daftar command.</span>
+        </div>
 
         {/* Existing commands */}
         {commands.length > 0 && (
