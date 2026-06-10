@@ -750,7 +750,7 @@ function CustomCommandsSection({ botId, bot, confirmDelete, setConfirmDelete, ha
 const ALL_FEATURES: Feature[] = [
   { id: 'webhook', name: 'Aktifkan Bot', desc: 'Webhook agar bot online 24 jam dan bisa merespon pesan di grup secara realtime', icon: '🌐', category: 'Dasar' },
   { id: 'force_join', name: 'Wajib Join Channel', desc: 'Member harus join channel dulu sebelum bisa kirim pesan di grup. Pesan dihapus otomatis jika belum join', icon: '🔒', category: 'Proteksi' },
-  { id: 'protect_group', name: 'Multi Grup', desc: 'Bot otomatis aktif di semua grup yang diikuti. Semua fitur (anti-spam, filter kata, welcome, dll) berlaku di seluruh grup tanpa perlu setting per-grup. Tambah grup manual via ID jika bot belum terdeteksi', icon: '🛡', category: 'Proteksi' },
+  { id: 'protect_group', name: 'Multi Grup', desc: '1 bot asisten untuk beberapa grup sekaligus. Semua fitur (anti-spam, filter kata, welcome, moderasi, dll) otomatis aktif di seluruh grup tanpa perlu setting ulang', icon: '🛡', category: 'Proteksi' },
   { id: 'anti_forward', name: 'Blokir Forward', desc: 'Hapus pesan yang di-forward dari luar grup. Member diberi peringatan, setelah batas tercapai di-mute otomatis', icon: '↩️', category: 'Proteksi' },
   { id: 'anti_spam', name: 'Anti Spam', desc: 'Otomatis mute member yang spam. Bisa atur batas pesan & durasi mute. Admin dikecualikan', icon: '🚫', category: 'Proteksi' },
   { id: 'banned_words', name: 'Filter Kata', desc: 'Hapus pesan mengandung kata terlarang (whole-word). Aksi: hapus saja, hapus + peringatan, atau hapus + mute', icon: '🤬', category: 'Proteksi' },
