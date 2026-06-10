@@ -4,6 +4,54 @@ import Bot from '@/lib/models/Bot'
 
 export const dynamic = 'force-dynamic'
 
+// Sync all commands (built-in + custom) to BotFather via setMyCommands API.
+// Called automatically after add/delete custom command.
+async function syncBotCommands(bot: any) {
+  try {
+    const features = bot.enabledFeatures || []
+    const commands: { command: string; description: string }[] = []
+
+    // Built-in moderation commands (only if moderation feature is enabled)
+    if (features.includes('moderation')) {
+      commands.push(
+        { command: 'mute', description: 'Mute member (reply/tag/ID) - Admin only' },
+        { command: 'unmute', description: 'Unmute member - Admin only' },
+        { command: 'kick', description: 'Kick member dari grup - Admin only' },
+        { command: 'ban', description: 'Ban member dari grup - Admin only' },
+        { command: 'unban', description: 'Unban member - Admin only' },
+        { command: 'id', description: 'Lihat user ID member (reply pesan) - Admin only' },
+      )
+    }
+
+    // Diagnostic commands
+    commands.push(
+      { command: 'spamdebug', description: 'Diagnostik anti-spam - Admin only' },
+      { command: 'welcomedebug', description: 'Diagnostik welcome message - Admin only' },
+      { command: 'welcometest', description: 'Test welcome message - Admin only' },
+    )
+
+    // Custom commands
+    if (bot.customCommands && bot.customCommands.length > 0) {
+      for (const cmd of bot.customCommands) {
+        // Telegram limit: description max 256 chars, command max 32 chars
+        const desc = cmd.response.replace(/<[^>]+>/g, '').slice(0, 100) || 'Custom command'
+        commands.push({ command: cmd.command.toLowerCase(), description: desc })
+      }
+    }
+
+    // Telegram allows max 100 commands
+    const finalCommands = commands.slice(0, 100)
+
+    await fetch(`https://api.telegram.org/bot${bot.token}/setMyCommands`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ commands: finalCommands }),
+    })
+  } catch (error) {
+    console.error('syncBotCommands error:', error)
+  }
+}
+
 function isAuthenticated(request: NextRequest): boolean {
   return request.cookies.get('auth-token')?.value === 'admin-authenticated'
 }
@@ -136,6 +184,12 @@ export async function PATCH(
     }
 
     await bot.save()
+
+    // Auto-sync commands to BotFather after custom command or feature changes
+    if (feature === 'custom_command_add' || feature === 'custom_command_update' || feature === 'custom_command_delete' || feature === 'enable_feature') {
+      await syncBotCommands(bot)
+    }
+
     return NextResponse.json({ success: true })
   } catch (error: any) {
     console.error('Toggle feature error:', error?.message)
