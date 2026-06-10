@@ -33,10 +33,8 @@ async function syncBotCommands(bot: any) {
     // Custom commands
     if (bot.customCommands && bot.customCommands.length > 0) {
       for (const cmd of bot.customCommands) {
-        // Use custom description if provided, otherwise use first 100 chars of response
-        const desc = cmd.description && cmd.description.trim()
-          ? cmd.description.trim().slice(0, 256)
-          : cmd.response.replace(/<[^>]+>/g, '').slice(0, 100) || 'Custom command'
+        // Telegram limit: description max 256 chars, command max 32 chars
+        const desc = cmd.response.replace(/<[^>]+>/g, '').slice(0, 100) || 'Custom command'
         commands.push({ command: cmd.command.toLowerCase(), description: desc })
       }
     }
@@ -154,7 +152,7 @@ export async function PATCH(
     } else if (feature === 'moderation_unban_message') {
       bot.moderationUnbanMessage = message || ''
     } else if (feature === 'custom_command_add') {
-      // Add custom command: { message: JSON { command, description, response } }
+      // Add custom command: { message: JSON { command, response } }
       const cmd = JSON.parse(message || '{}')
       if (cmd.command && cmd.response) {
         if (!bot.customCommands) bot.customCommands = []
@@ -165,17 +163,16 @@ export async function PATCH(
         if (exists) {
           return NextResponse.json({ error: `Command /${cmdName} sudah ada` }, { status: 400 })
         }
-        bot.customCommands.push({ command: cmdName, description: cmd.description || '', response: cmd.response })
+        bot.customCommands.push({ command: cmdName, response: cmd.response })
       }
     } else if (feature === 'custom_command_update') {
-      // Update command: { message: JSON { command, description, response } }
+      // Update command response: { message: JSON { command, response } }
       const cmd = JSON.parse(message || '{}')
-      if (cmd.command && bot.customCommands) {
+      if (cmd.command && cmd.response && bot.customCommands) {
         const cmdName = cmd.command.replace(/^\//, '').toLowerCase().trim()
         const idx = bot.customCommands.findIndex((c: any) => c.command.toLowerCase() === cmdName)
         if (idx >= 0) {
-          if (cmd.response) bot.customCommands[idx].response = cmd.response
-          if (cmd.description !== undefined) bot.customCommands[idx].description = cmd.description
+          bot.customCommands[idx].response = cmd.response
         }
       }
     } else if (feature === 'custom_command_delete') {

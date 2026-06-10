@@ -607,13 +607,11 @@ interface Feature {
 
 // Custom Commands Section Component
 function CustomCommandsSection({ botId, bot, confirmDelete, setConfirmDelete, handleDeleteFeature, fetchBot }: any) {
-  const [commands, setCommands] = useState<{ command: string; description: string; response: string }[]>(bot?.customCommands || [])
+  const [commands, setCommands] = useState<{ command: string; response: string }[]>(bot?.customCommands || [])
   const [newCmd, setNewCmd] = useState('')
-  const [newDesc, setNewDesc] = useState('')
   const [newResponse, setNewResponse] = useState('')
   const [adding, setAdding] = useState(false)
   const [editingCmd, setEditingCmd] = useState<string | null>(null)
-  const [editDesc, setEditDesc] = useState('')
   const [editResponse, setEditResponse] = useState('')
   const [saving, setSaving] = useState(false)
 
@@ -628,12 +626,11 @@ function CustomCommandsSection({ botId, bot, confirmDelete, setConfirmDelete, ha
       const res = await fetch(`/api/bots/${botId}/features`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ feature: 'custom_command_add', message: JSON.stringify({ command: newCmd.trim(), description: newDesc.trim(), response: newResponse.trim() }) }),
+        body: JSON.stringify({ feature: 'custom_command_add', message: JSON.stringify({ command: newCmd.trim(), response: newResponse.trim() }) }),
       })
       const data = await res.json()
       if (res.ok) {
         setNewCmd('')
-        setNewDesc('')
         setNewResponse('')
         fetchBot()
       } else {
@@ -661,7 +658,7 @@ function CustomCommandsSection({ botId, bot, confirmDelete, setConfirmDelete, ha
       await fetch(`/api/bots/${botId}/features`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ feature: 'custom_command_update', message: JSON.stringify({ command: cmd, description: editDesc.trim(), response: editResponse.trim() }) }),
+        body: JSON.stringify({ feature: 'custom_command_update', message: JSON.stringify({ command: cmd, response: editResponse.trim() }) }),
       })
       setEditingCmd(null)
       fetchBot()
@@ -698,20 +695,16 @@ function CustomCommandsSection({ botId, bot, confirmDelete, setConfirmDelete, ha
             {commands.map((cmd) => (
               <div key={cmd.command} className="bg-slate-50 rounded-lg border border-slate-100 p-3">
                 <div className="flex items-center justify-between mb-1">
-                  <div>
-                    <span className="text-xs font-mono font-semibold text-indigo-600">/{cmd.command}</span>
-                    {cmd.description && <span className="text-[10px] text-slate-400 ml-2">— {cmd.description}</span>}
-                  </div>
+                  <span className="text-xs font-mono font-semibold text-indigo-600">/{cmd.command}</span>
                   <div className="flex items-center gap-2">
-                    <button onClick={() => { setEditingCmd(cmd.command); setEditDesc(cmd.description || ''); setEditResponse(cmd.response) }} className="text-[10px] text-indigo-500 hover:text-indigo-700">Edit</button>
+                    <button onClick={() => { setEditingCmd(cmd.command); setEditResponse(cmd.response) }} className="text-[10px] text-indigo-500 hover:text-indigo-700">Edit</button>
                     <button onClick={() => handleDelete(cmd.command)} className="text-[10px] text-red-400 hover:text-red-600">Hapus</button>
                   </div>
                 </div>
                 {editingCmd === cmd.command ? (
-                  <div className="mt-2 space-y-2">
-                    <input type="text" value={editDesc} onChange={(e) => setEditDesc(e.target.value)} placeholder="Deskripsi singkat (muncul di autocomplete)" className="w-full px-3 py-1.5 border border-slate-200 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-indigo-300 bg-white" />
+                  <div className="mt-2">
                     <textarea value={editResponse} onChange={(e) => setEditResponse(e.target.value)} rows={3} className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-indigo-300 resize-none bg-white" />
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 mt-1.5">
                       <button onClick={() => handleUpdate(cmd.command)} disabled={saving} className="text-[10px] bg-indigo-600 hover:bg-indigo-700 disabled:bg-slate-300 text-white px-2.5 py-1 rounded-lg">{saving ? '...' : 'Simpan'}</button>
                       <button onClick={() => setEditingCmd(null)} className="text-[10px] text-slate-400 hover:text-slate-600">Batal</button>
                     </div>
@@ -737,13 +730,6 @@ function CustomCommandsSection({ botId, bot, confirmDelete, setConfirmDelete, ha
               className="flex-1 px-2.5 py-1.5 border border-slate-200 rounded-lg text-xs font-mono focus:outline-none focus:ring-2 focus:ring-indigo-300 bg-white"
             />
           </div>
-          <input
-            type="text"
-            value={newDesc}
-            onChange={(e) => setNewDesc(e.target.value)}
-            placeholder="Deskripsi singkat (muncul di autocomplete Telegram)"
-            className="w-full px-3 py-1.5 border border-slate-200 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-indigo-300 bg-white mb-2"
-          />
           <textarea
             value={newResponse}
             onChange={(e) => setNewResponse(e.target.value)}
@@ -754,7 +740,7 @@ function CustomCommandsSection({ botId, bot, confirmDelete, setConfirmDelete, ha
           <button onClick={handleAdd} disabled={adding || !newCmd.trim() || !newResponse.trim()} className="text-xs bg-indigo-600 hover:bg-indigo-700 disabled:bg-slate-300 text-white px-3 py-1.5 rounded-lg transition-colors">
             {adding ? 'Menambah...' : '+ Tambah'}
           </button>
-          <p className="text-[10px] text-slate-400 mt-2">Deskripsi akan muncul saat user ketik <b>/</b> di grup (autocomplete). Mendukung HTML di balasan: {'<b>bold</b>, <i>italic</i>, <a href="url">link</a>'}</p>
+          <p className="text-[10px] text-slate-400 mt-2">Mendukung HTML: {'<b>bold</b>, <i>italic</i>, <a href="url">link</a>'}</p>
         </div>
       </div>
     </section>
