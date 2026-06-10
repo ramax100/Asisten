@@ -79,6 +79,7 @@ const BotSchema = new Schema<IBot>(
     customCommands: [
       {
         command: { type: String, required: true },  // tanpa slash, misal "rules"
+        description: { type: String, default: '' }, // deskripsi singkat untuk BotFather autocomplete
         response: { type: String, required: true }, // teks balasan (support HTML)
       },
     ],
