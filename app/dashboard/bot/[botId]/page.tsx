@@ -605,6 +605,144 @@ interface Feature {
   category: string
 }
 
+// Custom Commands Section Component
+function CustomCommandsSection({ botId, bot, confirmDelete, setConfirmDelete, handleDeleteFeature, fetchBot }: any) {
+  const [commands, setCommands] = useState<{ command: string; response: string }[]>(bot?.customCommands || [])
+  const [newCmd, setNewCmd] = useState('')
+  const [newResponse, setNewResponse] = useState('')
+  const [adding, setAdding] = useState(false)
+  const [editingCmd, setEditingCmd] = useState<string | null>(null)
+  const [editResponse, setEditResponse] = useState('')
+  const [saving, setSaving] = useState(false)
+
+  useEffect(() => {
+    setCommands(bot?.customCommands || [])
+  }, [bot])
+
+  const handleAdd = async () => {
+    if (!newCmd.trim() || !newResponse.trim()) return
+    setAdding(true)
+    try {
+      const res = await fetch(`/api/bots/${botId}/features`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ feature: 'custom_command_add', message: JSON.stringify({ command: newCmd.trim(), response: newResponse.trim() }) }),
+      })
+      const data = await res.json()
+      if (res.ok) {
+        setNewCmd('')
+        setNewResponse('')
+        fetchBot()
+      } else {
+        alert(data.error || 'Gagal menambahkan command')
+      }
+    } catch { alert('Gagal menghubungi server') }
+    finally { setAdding(false) }
+  }
+
+  const handleDelete = async (cmd: string) => {
+    try {
+      await fetch(`/api/bots/${botId}/features`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ feature: 'custom_command_delete', message: cmd }),
+      })
+      fetchBot()
+    } catch {}
+  }
+
+  const handleUpdate = async (cmd: string) => {
+    if (!editResponse.trim()) return
+    setSaving(true)
+    try {
+      await fetch(`/api/bots/${botId}/features`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ feature: 'custom_command_update', message: JSON.stringify({ command: cmd, response: editResponse.trim() }) }),
+      })
+      setEditingCmd(null)
+      fetchBot()
+    } catch {}
+    finally { setSaving(false) }
+  }
+
+  return (
+    <section className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+      <div className="px-4 py-3 border-b border-slate-100 flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <span>💬</span>
+          <h2 className="text-sm font-semibold text-slate-800">Custom Commands</h2>
+        </div>
+        {confirmDelete === 'custom_commands' ? (
+          <div className="flex items-center gap-2">
+            <button onClick={() => handleDeleteFeature('custom_commands')} className="text-xs bg-red-500 text-white px-2 py-0.5 rounded">Ya</button>
+            <button onClick={() => setConfirmDelete('')} className="text-xs text-slate-400">Batal</button>
+          </div>
+        ) : (
+          <button onClick={() => setConfirmDelete('custom_commands')} className="text-xs text-slate-400 hover:text-red-500 transition-colors">Hapus</button>
+        )}
+      </div>
+      <div className="px-4 py-4">
+        <p className="text-xs text-slate-500 mb-3">Buat command bot sendiri. Member ketik command di grup → bot reply dengan teks yang sudah diatur.</p>
+
+        {/* Existing commands */}
+        {commands.length > 0 && (
+          <div className="space-y-2 mb-4">
+            {commands.map((cmd) => (
+              <div key={cmd.command} className="bg-slate-50 rounded-lg border border-slate-100 p-3">
+                <div className="flex items-center justify-between mb-1">
+                  <span className="text-xs font-mono font-semibold text-indigo-600">/{cmd.command}</span>
+                  <div className="flex items-center gap-2">
+                    <button onClick={() => { setEditingCmd(cmd.command); setEditResponse(cmd.response) }} className="text-[10px] text-indigo-500 hover:text-indigo-700">Edit</button>
+                    <button onClick={() => handleDelete(cmd.command)} className="text-[10px] text-red-400 hover:text-red-600">Hapus</button>
+                  </div>
+                </div>
+                {editingCmd === cmd.command ? (
+                  <div className="mt-2">
+                    <textarea value={editResponse} onChange={(e) => setEditResponse(e.target.value)} rows={3} className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-indigo-300 resize-none bg-white" />
+                    <div className="flex items-center gap-2 mt-1.5">
+                      <button onClick={() => handleUpdate(cmd.command)} disabled={saving} className="text-[10px] bg-indigo-600 hover:bg-indigo-700 disabled:bg-slate-300 text-white px-2.5 py-1 rounded-lg">{saving ? '...' : 'Simpan'}</button>
+                      <button onClick={() => setEditingCmd(null)} className="text-[10px] text-slate-400 hover:text-slate-600">Batal</button>
+                    </div>
+                  </div>
+                ) : (
+                  <p className="text-[11px] text-slate-600 whitespace-pre-wrap break-words">{cmd.response.length > 150 ? cmd.response.slice(0, 150) + '...' : cmd.response}</p>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Add new command */}
+        <div className="bg-indigo-50/50 rounded-lg border border-indigo-100 p-3">
+          <p className="text-[10px] font-semibold text-indigo-600 mb-2">+ Tambah Command Baru</p>
+          <div className="flex items-center gap-2 mb-2">
+            <span className="text-xs text-slate-400">/</span>
+            <input
+              type="text"
+              value={newCmd}
+              onChange={(e) => setNewCmd(e.target.value.replace(/[^a-zA-Z0-9_]/g, '').toLowerCase())}
+              placeholder="nama_command"
+              className="flex-1 px-2.5 py-1.5 border border-slate-200 rounded-lg text-xs font-mono focus:outline-none focus:ring-2 focus:ring-indigo-300 bg-white"
+            />
+          </div>
+          <textarea
+            value={newResponse}
+            onChange={(e) => setNewResponse(e.target.value)}
+            placeholder="Teks balasan bot saat command dipakai..."
+            rows={3}
+            className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-indigo-300 resize-none bg-white mb-2"
+          />
+          <button onClick={handleAdd} disabled={adding || !newCmd.trim() || !newResponse.trim()} className="text-xs bg-indigo-600 hover:bg-indigo-700 disabled:bg-slate-300 text-white px-3 py-1.5 rounded-lg transition-colors">
+            {adding ? 'Menambah...' : '+ Tambah'}
+          </button>
+          <p className="text-[10px] text-slate-400 mt-2">Mendukung HTML: {'<b>bold</b>, <i>italic</i>, <a href="url">link</a>'}</p>
+        </div>
+      </div>
+    </section>
+  )
+}
+
 const ALL_FEATURES: Feature[] = [
   { id: 'webhook', name: 'Webhook', desc: 'Aktifkan bot 24 jam', icon: '🌐', category: 'Dasar' },
   { id: 'force_join', name: 'Force Join Channel', desc: 'Wajibkan member join channel sebelum kirim pesan', icon: '🔒', category: 'Proteksi' },
@@ -615,6 +753,7 @@ const ALL_FEATURES: Feature[] = [
   { id: 'welcome', name: 'Welcome Message', desc: 'Sambut member baru yang masuk grup', icon: '👋', category: 'Pesan Otomatis' },
   { id: 'greeting', name: 'Ucapan Otomatis', desc: 'Kirim ucapan selamat pagi, siang, sore, malam', icon: '🕐', category: 'Pesan Otomatis' },
   { id: 'moderation', name: 'Moderasi (Mute/Kick/Ban)', desc: 'Admin bisa mute, kick, ban member via command', icon: '⚔️', category: 'Moderasi' },
+  { id: 'custom_commands', name: 'Custom Commands', desc: 'Buat command bot sendiri (/rules, /info, dll)', icon: '💬', category: 'Pesan Otomatis' },
 ]
 
 const FEATURE_CATEGORIES = ['Dasar', 'Proteksi', 'Pesan Otomatis', 'Moderasi']
@@ -1493,7 +1632,12 @@ export default function BotSettingsPage() {
             <p className="text-slate-400 text-xs mt-1">Klik "+ Tambah Fitur" untuk menambahkan</p>
           </div>
         )}
-        {activeTab === 'pesan' && !enabledFeatures.includes('welcome') && (
+        {/* CUSTOM COMMANDS */}
+        {activeTab === 'pesan' && enabledFeatures.includes('custom_commands') && (
+          <CustomCommandsSection botId={botId} bot={bot} confirmDelete={confirmDelete} setConfirmDelete={setConfirmDelete} handleDeleteFeature={handleDeleteFeature} fetchBot={fetchBot} />
+        )}
+
+        {activeTab === 'pesan' && !enabledFeatures.includes('welcome') && !enabledFeatures.includes('custom_commands') && (
           <div className="bg-white rounded-xl border border-slate-200 p-8 text-center">
             <p className="text-slate-500 text-sm">Belum ada fitur Pesan Bot</p>
             <p className="text-slate-400 text-xs mt-1">Klik "+ Tambah Fitur" untuk menambahkan</p>

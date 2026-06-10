@@ -75,6 +75,13 @@ const BotSchema = new Schema<IBot>(
     moderationKickMessage: { type: String, default: '' },
     moderationBanMessage: { type: String, default: '' },
     moderationUnbanMessage: { type: String, default: '' },
+    // Custom commands: admin bisa buat /command sendiri yang reply teks tertentu.
+    customCommands: [
+      {
+        command: { type: String, required: true },  // tanpa slash, misal "rules"
+        response: { type: String, required: true }, // teks balasan (support HTML)
+      },
+    ],
     enabledFeatures: [{ type: String }],
   },
   { timestamps: true }

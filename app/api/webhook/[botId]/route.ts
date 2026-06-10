@@ -83,6 +83,20 @@ export async function POST(
       } else if (msgText.match(/\/(mute|unmute|kick|ban|unban|id)\b/i)) {
         // Handle moderation commands - skip force join check
         await handleCommand(update.message, bot)
+      } else if (msgText.startsWith('/') && bot.customCommands && bot.customCommands.length > 0) {
+        // Check custom commands
+        const cmdMatch = msgText.match(/^\/([a-zA-Z0-9_]+)/)
+        if (cmdMatch) {
+          const cmdName = cmdMatch[1].toLowerCase().split('@')[0] // handle /cmd@BotName
+          const customCmd = bot.customCommands.find((c: any) => c.command.toLowerCase() === cmdName)
+          if (customCmd) {
+            await handleCustomCommand(update.message, bot, customCmd.response)
+          } else {
+            await handleMessage(update.message, bot)
+          }
+        } else {
+          await handleMessage(update.message, bot)
+        }
       } else {
         await handleMessage(update.message, bot)
       }
@@ -748,6 +762,41 @@ async function handleWelcomeTest(message: any, bot: any) {
     }),
   })
 }
+
+// Handle custom commands — reply with the configured response text
+async function handleCustomCommand(message: any, bot: any, responseText: string) {
+  const chat = message.chat
+  if (chat.type !== 'group' && chat.type !== 'supergroup') return
+
+  try {
+    const res = await fetch(`https://api.telegram.org/bot${bot.token}/sendMessage`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        chat_id: chat.id,
+        text: responseText,
+        parse_mode: 'HTML',
+        reply_to_message_id: message.message_id,
+      }),
+    })
+    const data = await res.json()
+    // Fallback to plain text if HTML fails
+    if (!data.ok) {
+      await fetch(`https://api.telegram.org/bot${bot.token}/sendMessage`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          chat_id: chat.id,
+          text: responseText.replace(/<[^>]+>/g, ''),
+          reply_to_message_id: message.message_id,
+        }),
+      })
+    }
+  } catch (error) {
+    console.error('Custom command error:', error)
+  }
+}
+
 async function handleMessage(message: any, bot: any) {
   const chat = message.chat
   const user = message.from

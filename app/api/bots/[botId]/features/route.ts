@@ -103,6 +103,36 @@ export async function PATCH(
       bot.moderationBanMessage = message || ''
     } else if (feature === 'moderation_unban_message') {
       bot.moderationUnbanMessage = message || ''
+    } else if (feature === 'custom_command_add') {
+      // Add custom command: { message: JSON { command, response } }
+      const cmd = JSON.parse(message || '{}')
+      if (cmd.command && cmd.response) {
+        if (!bot.customCommands) bot.customCommands = []
+        // Remove slash if user includes it
+        const cmdName = cmd.command.replace(/^\//, '').toLowerCase().trim()
+        // Check duplicate
+        const exists = bot.customCommands.find((c: any) => c.command.toLowerCase() === cmdName)
+        if (exists) {
+          return NextResponse.json({ error: `Command /${cmdName} sudah ada` }, { status: 400 })
+        }
+        bot.customCommands.push({ command: cmdName, response: cmd.response })
+      }
+    } else if (feature === 'custom_command_update') {
+      // Update command response: { message: JSON { command, response } }
+      const cmd = JSON.parse(message || '{}')
+      if (cmd.command && cmd.response && bot.customCommands) {
+        const cmdName = cmd.command.replace(/^\//, '').toLowerCase().trim()
+        const idx = bot.customCommands.findIndex((c: any) => c.command.toLowerCase() === cmdName)
+        if (idx >= 0) {
+          bot.customCommands[idx].response = cmd.response
+        }
+      }
+    } else if (feature === 'custom_command_delete') {
+      // Delete command: { message: command name }
+      if (message && bot.customCommands) {
+        const cmdName = message.replace(/^\//, '').toLowerCase().trim()
+        bot.customCommands = bot.customCommands.filter((c: any) => c.command.toLowerCase() !== cmdName)
+      }
     }
 
     await bot.save()
@@ -176,6 +206,8 @@ export async function DELETE(
       bot.moderationKickMessage = ''
       bot.moderationBanMessage = ''
       bot.moderationUnbanMessage = ''
+    } else if (feature === 'custom_commands') {
+      bot.customCommands = []
     }
 
     await bot.save()
