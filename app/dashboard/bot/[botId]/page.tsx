@@ -259,7 +259,7 @@ function BannedWordsSection({ botId, bot, confirmDelete, setConfirmDelete, handl
       <div className="px-4 py-3 border-b border-slate-100 flex items-center justify-between">
         <div className="flex items-center gap-2">
           <span>🤬</span>
-          <h2 className="text-sm font-semibold text-slate-800">Kata Terlarang</h2>
+          <h2 className="text-sm font-semibold text-slate-800">Filter Kata</h2>
         </div>
         {confirmDelete === 'banned_words' ? (
           <div className="flex items-center gap-2">
@@ -405,7 +405,7 @@ function AntiSpamSection({ botId, bot, confirmDelete, setConfirmDelete, handleDe
       <div className="px-4 py-3 border-b border-slate-100 flex items-center justify-between">
         <div className="flex items-center gap-2">
           <span>🚫</span>
-          <h2 className="text-sm font-semibold text-slate-800">Anti-Spam</h2>
+          <h2 className="text-sm font-semibold text-slate-800">Anti Spam</h2>
         </div>
         {confirmDelete === 'anti_spam' ? (
           <div className="flex items-center gap-2">
@@ -495,7 +495,7 @@ function AntiForwardSection({ botId, bot, confirmDelete, setConfirmDelete, handl
       <div className="px-4 py-3 border-b border-slate-100 flex items-center justify-between">
         <div className="flex items-center gap-2">
           <span>↩️</span>
-          <h2 className="text-sm font-semibold text-slate-800">Anti-Forward</h2>
+          <h2 className="text-sm font-semibold text-slate-800">Blokir Forward</h2>
         </div>
         {confirmDelete === 'anti_forward' ? (
           <div className="flex items-center gap-2">
@@ -671,7 +671,7 @@ function CustomCommandsSection({ botId, bot, confirmDelete, setConfirmDelete, ha
       <div className="px-4 py-3 border-b border-slate-100 flex items-center justify-between">
         <div className="flex items-center gap-2">
           <span>💬</span>
-          <h2 className="text-sm font-semibold text-slate-800">Custom Commands</h2>
+          <h2 className="text-sm font-semibold text-slate-800">Command Custom</h2>
         </div>
         {confirmDelete === 'custom_commands' ? (
           <div className="flex items-center gap-2">
@@ -1270,7 +1270,7 @@ export default function BotSettingsPage() {
             <div className="px-4 py-3 border-b border-slate-100 flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <span>🔒</span>
-                <h2 className="text-sm font-semibold text-slate-800">Force Join Channel</h2>
+                <h2 className="text-sm font-semibold text-slate-800">Wajib Join Channel</h2>
                 {bot.forceJoinEnabled === false && <span className="text-[10px] bg-yellow-100 text-yellow-700 px-1.5 py-0.5 rounded font-medium">OFF</span>}
               </div>
               <div className="flex items-center gap-1">
@@ -1389,7 +1389,7 @@ export default function BotSettingsPage() {
             <div className="px-4 py-3 border-b border-slate-100 flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <span>🛡</span>
-                <h2 className="text-sm font-semibold text-slate-800">Proteksi Grup</h2>
+                <h2 className="text-sm font-semibold text-slate-800">Multi Grup</h2>
               </div>
               {confirmDelete === 'protect_group' ? (
                 <div className="flex items-center gap-2">
@@ -1431,7 +1431,7 @@ export default function BotSettingsPage() {
             <div className="px-4 py-3 border-b border-slate-100 flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <span>👋</span>
-                <h2 className="text-sm font-semibold text-slate-800">Welcome Message</h2>
+                <h2 className="text-sm font-semibold text-slate-800">Sambutan Member Baru</h2>
                 {bot.welcomeMessage === '__disabled__' ? (
                   <span className="text-[9px] bg-red-100 text-red-500 px-1 py-0.5 rounded font-medium">Nonaktif</span>
                 ) : bot.welcomeMessage ? (
@@ -1487,7 +1487,7 @@ export default function BotSettingsPage() {
             <div className="px-4 py-3 border-b border-slate-100 flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <span>🕐</span>
-                <h2 className="text-sm font-semibold text-slate-800">Ucapan Otomatis</h2>
+                <h2 className="text-sm font-semibold text-slate-800">Sapaan Harian</h2>
               </div>
               {confirmDelete === 'greeting' ? (
                 <div className="flex items-center gap-2">
@@ -1551,7 +1551,7 @@ export default function BotSettingsPage() {
             <div className="px-4 py-3 border-b border-slate-100 flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <span>⚔️</span>
-                <h2 className="text-sm font-semibold text-slate-800">Moderasi (Mute/Kick/Ban)</h2>
+                <h2 className="text-sm font-semibold text-slate-800">Moderasi Grup</h2>
               </div>
               {confirmDelete === 'moderation' ? (
                 <div className="flex items-center gap-2">
