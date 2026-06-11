@@ -140,12 +140,14 @@ Klik tombol **Fork** di kanan atas halaman GitHub ini.
 
 ## Environment Variables
 
-| Variable | Wajib | Default | Keterangan |
-|----------|:-----:|---------|------------|
-| `MONGODB_URI` | **Ya** | - | MongoDB Atlas connection string |
-| `ADMIN_USERNAME` | Tidak | `admin` | Username login panel |
-| `ADMIN_PASSWORD` | Tidak | `@Admin001002` | Password login panel |
-| `NEXT_PUBLIC_BASE_URL` | Tidak | auto-detect | Base URL (opsional) |
+| Variable | Wajib | Keterangan |
+|----------|:-----:|------------|
+| `MONGODB_URI` | **Ya** | MongoDB Atlas connection string |
+| `ADMIN_USERNAME` | **Ya** | Username login panel (bebas pilih sendiri) |
+| `ADMIN_PASSWORD` | **Ya** | Password login panel (bebas pilih sendiri) |
+| `NEXT_PUBLIC_BASE_URL` | Tidak | Base URL (opsional, otomatis terdeteksi) |
+
+> ⚠️ **PENTING:** Jangan pernah taruh credential di source code. Selalu gunakan Environment Variables di Vercel.
 
 ---
 
