@@ -1,13 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server'
 
-// Admin credentials
-const ADMIN_USERNAME = process.env.ADMIN_USERNAME || 'admin'
-const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || '@Admin001002'
-
 export const dynamic = 'force-dynamic'
 
 export async function POST(request: NextRequest) {
   try {
+    // Admin credentials WAJIB di-set via environment variables
+    const ADMIN_USERNAME = process.env.ADMIN_USERNAME
+    const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD
+
+    if (!ADMIN_USERNAME || !ADMIN_PASSWORD) {
+      return NextResponse.json({ error: 'Admin credentials belum di-set di environment variables' }, { status: 500 })
+    }
+
     const body = await request.json()
     const { username, password } = body
 
