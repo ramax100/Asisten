@@ -1,8 +1,10 @@
 import mongoose from 'mongoose'
 
-// Gunakan MONGODB_URI dari environment variable jika tersedia.
-// Jika tidak ada (misal deploy tanpa set env), pakai default connection string.
-const MONGODB_URI = process.env.MONGODB_URI || 'mongodb+srv://botpanel:%40Admin001002@cluster0.hfenfpl.mongodb.net/telegrampanel?retryWrites=true&w=majority'
+const MONGODB_URI = process.env.MONGODB_URI || ''
+
+if (!MONGODB_URI) {
+  throw new Error('MONGODB_URI belum di-set di environment variables!')
+}
 
 let cached = (global as any).mongoose
 
